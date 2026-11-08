@@ -64,6 +64,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                    ofType: (NSString *) type
                     error: (NSError **) error;
 - makeUntitledDocumentOfType: (NSString *) type;
+// OSXER TEXTEDIT (declaration): this public method is already implemented.
+- (id) makeUntitledDocumentOfType: (NSString *) type error: (NSError **) error;
 
 - openUntitledDocumentOfType: (NSString *) type display: (BOOL) display;
 - openUntitledDocumentAndDisplay: (BOOL) display error: (NSError **) error;

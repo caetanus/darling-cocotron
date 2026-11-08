@@ -157,13 +157,19 @@ static NSDocumentController *shared = nil;
 }
 
 - (NSDictionary *) _infoForType: (NSString *) type {
+    // OSXER TEXTEDIT (document UTI): modern bundles declare programmatic types
+    // in LSItemContentTypes. Keep legacy CFBundleTypeName lookup available.
+    // https://developer.apple.com/library/archive/documentation/DataManagement/Conceptual/DocBasedAppProgrammingGuideForOSX/ApplicationCreationProcess/ApplicationCreationProcess.html
+    if (type == nil)
+        return nil;
     int i, count = [_fileTypes count];
 
     for (i = 0; i < count; i++) {
         NSDictionary *check = [_fileTypes objectAtIndex: i];
         NSString *name = [check objectForKey: @"CFBundleTypeName"];
 
-        if ([name isEqualToString: type])
+        if ([[check objectForKey: @"LSItemContentTypes"] containsObject: type] ||
+            [name isEqualToString: type])
             return check;
     }
     return nil;
@@ -177,13 +183,8 @@ static NSDocumentController *shared = nil;
 }
 
 - (Class) documentClassForType: (NSString *) type {
-    NSString *result = nil;
-    for (NSDictionary *fileType in _fileTypes) {
-        if ([type isEqualToString: [fileType objectForKey: @"CFBundleTypeName"]]) {
-            result = [fileType objectForKey: @"NSDocumentClass"];
-            break;
-        }
-    }
+    // OSXER TEXTEDIT (document UTI): share the declared-type lookup.
+    NSString *result = [[self _infoForType: type] objectForKey: @"NSDocumentClass"];
 
     return (result == nil) ? nil : NSClassFromString(result);
 }

@@ -46,6 +46,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <CoreGraphics/CGWindow.h>
 #import <objc/message.h>
 #import <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 // Runs the +[NSEvent addLocalMonitorForEventsMatchingMask:handler:] handlers.
 extern NSEvent *NSEventApplyLocalMonitors(NSEvent *event);
@@ -1251,6 +1255,28 @@ NSApplication *NSApp = nil;
 }
 
 - (void) reportException: (NSException *) exception {
+    // OSXER LOG (exceptions): bypass NSLog so a caught exception is visible
+    // even when stdout is buffered or the system logger is disabled.
+    const char *mirror = getenv("OSXER_LOG_STDERR");
+    if (!issetugid() && mirror && strcmp(mirror, "1") == 0) {
+        fprintf(stderr, "NSApplication got exception: name=%s reason=%s\n",
+                [[exception name] UTF8String] ?: "(nil)",
+                [[exception reason] UTF8String] ?: "(nil)");
+        fflush(stderr);
+        @try {
+            NSArray *symbols = [exception callStackSymbols];
+            NSArray *addresses = [exception callStackReturnAddresses];
+            for (NSString *symbol in symbols)
+                fprintf(stderr, "  %s\n", [symbol UTF8String] ?: "(nil)");
+            for (NSNumber *address in addresses)
+                fprintf(stderr, "  return address: 0x%llx\n", [address unsignedLongLongValue]);
+            if (![symbols count] && ![addresses count])
+                fprintf(stderr, "  exception has no captured call stack\n");
+        } @catch (id stackException) {
+            fprintf(stderr, "  unable to format exception call stack\n");
+        }
+        fflush(stderr);
+    }
     NSLog(@"NSApplication got exception: %@", exception);
 }
 

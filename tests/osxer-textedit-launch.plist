@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- OSXER TEXTEDIT (regression): synthetic types, independent of TextEdit. -->
+<plist version="1.0"><dict>
+  <key>CFBundleExecutable</key><string>probe</string>
+  <key>CFBundleIdentifier</key><string>org.osxer.test.document-uti</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleDocumentTypes</key><array>
+    <dict>
+      <key>CFBundleTypeName</key><string>Rich Document</string>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>LSItemContentTypes</key><array><string>org.osxer.test.rich</string><string>org.osxer.test.alias</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>osxerrich</string></array>
+      <key>NSDocumentClass</key><string>OSXERUTIDocument</string>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key><string>Legacy Document</string>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>NSDocumentClass</key><string>OSXERUTIDocument</string>
+    </dict>
+    <dict>
+      <key>LSItemContentTypes</key><array><string>org.osxer.test.missing-class</string></array>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>NSDocumentClass</key><string>OSXERMissingDocumentClass</string>
+    </dict>
+  </array>
+</dict></plist>
