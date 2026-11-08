@@ -1,3 +1,4 @@
+#import "NSInterfacePart/OSXERBigSurGraphicsStyle.h" // OSXER BIGSUR R2 (combo bezel)
 /* Copyright (c) 2006-2007 Christopher J. W. Lloyd
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -288,6 +289,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (NSRect) buttonRectForBounds: (NSRect) rect {
+    // OSXER BIGSUR R2 (combo tile): x721..736/y147..162, 16x16 r4;
+    // frame x522..741/y142..167, tile inset right=5, top=5.
+    if (OSXERBigSurEnabled())
+        return NSMakeRect(NSMaxX(rect)-21, NSMidY(rect)-8, 16, 16);
     rect.origin.x = (rect.origin.x + rect.size.width) - rect.size.height;
     rect.size.width = rect.size.height;
     return rect;
@@ -382,6 +387,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (NSRect) titleRectForBounds: (NSRect) rect {
     // Keep some room for the button
+    if (OSXERBigSurEnabled()) {
+        // OSXER BIGSUR R2 (combo text): x534 ink; 11 px inset plus bearing.
+        // OSXER BIGSUR R2 (combo baseline): ink y150, frame top142, bearing4.
+        rect = NSInsetRect(rect, 0, 4);
+        rect.origin.x += 11;
+        rect.size.width = MAX(0, rect.size.width - 36);
+        return rect;
+    }
     NSRect buttonFrame = [self buttonRectForBounds: rect];
     rect.size.width = NSMinX(buttonFrame) - rect.origin.x;
     rect = [super titleRectForBounds: rect];
@@ -390,13 +403,23 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) drawInteriorWithFrame: (NSRect) frame inView: (NSView *) controlView {
-    frame.size = [self cellSize];
+    if (!OSXERBigSurEnabled()) frame.size = [self cellSize];
     [super drawInteriorWithFrame: frame inView: controlView];
 }
 
 - (void) drawWithFrame: (NSRect) frame inView: (NSView *) controlView {
-    frame.size = [self cellSize];
-    [super drawWithFrame: frame inView: controlView];
+    if (OSXERBigSurEnabled()) {
+        _controlView = controlView;
+        // OSXER BIGSUR R2 (combo): field x522..739/y144..165 = 218x22,
+        // fit r6; keep the original frame for title/editing and arrow hit test.
+        NSRect bezel = NSInsetRect(frame, 0, 2); bezel.size.width -= 2;
+        [(OSXERBigSurGraphicsStyle *)[controlView graphicsStyle]
+                drawComboBoxBezelInRect: bezel];
+        [self drawInteriorWithFrame: frame inView: controlView];
+    } else {
+        frame.size = [self cellSize];
+        [super drawWithFrame: frame inView: controlView];
+    }
 
     [[controlView graphicsStyle]
             drawComboBoxButtonInRect: [self buttonRectForBounds: frame]

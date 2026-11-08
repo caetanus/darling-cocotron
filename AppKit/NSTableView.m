@@ -156,7 +156,9 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
     _rowHeights = NULL;
     // OSXER: only defaults change; explicit/nib row heights remain respected.
     _standardRowHeight = OSXERBigSurEnabled() ? 17 : NSTableViewDefaultRowHeight;
-    _intercellSpacing = NSMakeSize(3.0, 2.0);
+    // OSXER BIGSUR R2 (table pitch): reference row starts 369,391,413,...;
+    // explicit rowHeight=22 must not acquire the old extra 2 px gap.
+    _intercellSpacing = OSXERBigSurEnabled() ? NSMakeSize(3, 0) : NSMakeSize(3, 2);
     _selectedRowIndexes = [[NSIndexSet alloc] init];
     _selectedColumns = [[NSMutableArray alloc] init];
     _editedColumn = -1;
@@ -184,8 +186,9 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
                                       _standardRowHeight)];
 
     if (OSXERBigSurEnabled()) {
-        [_headerView setFrameSize: NSMakeSize(NSWidth(frame), 22)];
-        [_cornerView setFrameSize: NSMakeSize(_standardRowHeight, 22)];
+        // OSXER BIGSUR R2 (header): y341..368 = 28 px incl. bottom rule.
+        [_headerView setFrameSize: NSMakeSize(NSWidth(frame), 28)];
+        [_cornerView setFrameSize: NSMakeSize(_standardRowHeight, 28)];
     }
 
     _tableColumns = [[NSMutableArray alloc] init];
@@ -748,7 +751,9 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
 }
 
 - (NSRect) _adjustedFrame: (NSRect) frame forCell: (NSCell *) dataCell {
-    frame.origin.x += _intercellSpacing.width - 1.;
+    // OSXER BIGSUR R2 (table text): ref ink starts x25 vs viewport x17,
+    // 8 px total (5 cell offset + 2 text inset + 1 font bearing).
+    frame.origin.x += _intercellSpacing.width + (OSXERBigSurEnabled() ? 2 : -1);
     frame.origin.y += _intercellSpacing.height;
     frame.size.width -= _intercellSpacing.width;
     frame.size.height -= _intercellSpacing.height;
@@ -1164,6 +1169,10 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     if ([_tableColumns count] > 0)
         size.height = [self rectOfColumn: 0].size.height;
 
+    // OSXER BIGSUR R2 (table coverage): reference stripes/selection reach
+    // x351, immediately before the scroller. Do not shrink below the viewport
+    // when reloadData recomputes the sum of explicit column widths.
+    if (OSXERBigSurEnabled()) size.width = MAX(size.width, [[self superview] bounds].size.width);
     headerSize.width = size.width;
 
     [self setFrameSize: size];

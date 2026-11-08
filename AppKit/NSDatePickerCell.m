@@ -1,3 +1,5 @@
+#import "NSInterfacePart/OSXERBigSurGraphicsStyle.h" // OSXER BIGSUR R2 (date picker)
+#import <AppKit/NSFont.h>
 /* Copyright (c) 2007 Christopher J. W. Lloyd
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -27,6 +29,43 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSLocale.h>
 
 @implementation NSDatePickerCell
+
+// OSXER BIGSUR R2 (date initialization): nib-only initialization left calendar,
+// colors and date nil. Keep the existing component editing and stepper actions.
+// OSXER BIGSUR R2 (initializer dispatch): NSCell -init uses initImageCell:.
+- init { return [self initTextCell: @""]; }
+- initTextCell: (NSString *) string {
+    if ((self = [super initTextCell: string])) {
+        _calendar = [[NSCalendar currentCalendar] copy];
+        _backgroundColor = [[NSColor textBackgroundColor] retain];
+        _textColor = [[NSColor controlTextColor] retain];
+        _elements = NSYearMonthDayDatePickerElementFlag;
+        _style = NSTextFieldAndStepperDatePickerStyle;
+        _drawsBackground = YES;
+        [self setFont: [NSFont systemFontOfSize: 13]];
+        [self setDateValue: [NSDate date]];
+        [self setEnabled: YES];
+    }
+    return self;
+}
+
+// OSXER BIGSUR R2 (date ownership): NSCell copies only its own fields.
+- copyWithZone: (NSZone *) zone {
+    NSDatePickerCell *copy = [super copyWithZone: zone];
+    copy->_calendar = [_calendar copy]; copy->_locale = [_locale copy];
+    copy->_timeZone = [_timeZone copy]; copy->_minDate = [_minDate copy];
+    copy->_maxDate = [_maxDate copy]; copy->_backgroundColor = [_backgroundColor copy];
+    copy->_textColor = [_textColor copy];
+    return copy;
+}
+
+- (void) dealloc {
+    [_calendar release]; [_locale release]; [_timeZone release];
+    [_minDate release]; [_maxDate release];
+    [_backgroundColor release]; [_textColor release];
+    [super dealloc];
+}
+
 
 - initWithCoder: (NSCoder *) coder {
     [super initWithCoder: coder];
@@ -157,6 +196,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     timeZone = [timeZone copy];
     [_timeZone release];
     _timeZone = timeZone;
+    [_calendar setTimeZone: timeZone]; // OSXER BIGSUR R2: component date honors supplied zone.
 }
 
 - (void) setDrawsBackground: (BOOL) flag {
@@ -329,6 +369,10 @@ static void getRectsInFrameForAttributesStrings(NSRect *rects, NSRect frame,
 }
 
 - (NSRect) _stepperFrameForFrame: (NSRect) frame {
+    // OSXER BIGSUR R2 (date geometry): bezel x186..356/y539..562,
+    // stepper x360..373/y541..560; frame 190x26, bezel 171x24, 3 px gap.
+    if (OSXERBigSurEnabled())
+        return NSMakeRect(NSMaxX(frame)-16, NSMinY(frame)+1, 14, NSHeight(frame)-4);
     NSRect stepper = frame;
     stepper.origin.x = NSMaxX(stepper) - 15;
     stepper.size.width = 15;
@@ -337,6 +381,10 @@ static void getRectsInFrameForAttributesStrings(NSRect *rects, NSRect frame,
 }
 
 - (NSRect) _bezelFrameForFrame: (NSRect) frame {
+    if (OSXERBigSurEnabled()) {
+        frame.size.height -= 2; frame.size.width -= 19;
+        return frame;
+    }
     NSRect stepper = [self _stepperFrameForFrame: frame];
     NSRect bezel = frame;
 
@@ -440,10 +488,13 @@ static void getRectsInFrameForAttributesStrings(NSRect *rects, NSRect frame,
 }
 
 - (void) drawWithFrame: (NSRect) frame inView: (NSView *) view {
+    _controlView = view; // OSXER BIGSUR R2: programmatic draw must set style owner.
     NSRect stepper = [self _stepperFrameForFrame: frame];
     NSRect bezel = [self _bezelFrameForFrame: frame];
 
-    NSDrawWhiteBezel(bezel, bezel);
+    if (OSXERBigSurEnabled())
+        [[view graphicsStyle] drawTextFieldBorderInRect: bezel bezeledNotLine: YES];
+    else NSDrawWhiteBezel(bezel, bezel);
 
     [self drawInteriorWithFrame: frame inView: view];
 

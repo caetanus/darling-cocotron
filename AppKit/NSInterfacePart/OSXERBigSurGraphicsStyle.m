@@ -55,6 +55,46 @@ static void ShadowFill(NSRect rect, CGFloat radius, NSString *fill,
     CGContextRestoreGState(ctx);
 }
 
+// OSXER BIGSUR R2 (measured bezels): light-focus-window.png normal fill
+// x140..227/y40..59, corner reaches full width after 5 px; bottom y60=#BABABA.
+// Fit r5, 1 px lower edge; PNG shadow support extends 1 px beyond that edge.
+static void ButtonBezel(NSRect rect, CGFloat radius, BOOL accent, BOOL flipped) {
+    NSRect lower = rect;
+    lower.origin.y += flipped ? 1 : -1;
+    Fill(lower, radius, accent ? @"controlAccentColor" : @"buttonBottom");
+    if (accent) {
+        // Top blue median (250,40)=#2891FF; bottom (250,59)~#007AFF.
+        CGContextSaveGState(Context());
+        [Rounded(rect, radius) addClip];
+        NSInteger height = MAX(1, (NSInteger)ceil(NSHeight(rect)));
+        for (NSInteger y = 0; y < height; ++y) {
+            CGFloat t = height > 1 ? (CGFloat)y / (height - 1) : 0;
+            [[NSColor colorWithSRGBRed: (40 * (1-t))/255.0
+                    green: (145 - 23*t)/255.0 blue: 1 alpha: 1] setFill];
+            NSRect band = NSMakeRect(NSMinX(rect), flipped ? NSMinY(rect)+y : NSMaxY(rect)-y-1,
+                                     NSWidth(rect), 1);
+            NSRectFill(band);
+        }
+        CGContextRestoreGState(Context());
+    } else {
+        Fill(rect, radius, @"controlColor");
+        Border(rect, radius, .5, @"buttonBorder");
+    }
+}
+
+// OSXER BIGSUR R2 (field borders): (170,198)=#E3E3E3, (170,221)=#BBBBBB;
+// white inside, 1 px border, 24 px height. Search corner is a fitted r6.
+static void FieldBezel(NSRect rect, CGFloat radius, NSColor *background, BOOL flipped) {
+    [background setFill]; [Rounded(rect, radius) fill];
+    Border(rect, radius, 1, @"fieldBorder");
+    CGContextSaveGState(Context());
+    NSRect bottom = rect; bottom.size.height = 1;
+    if (flipped) bottom.origin.y = NSMaxY(rect)-1;
+    NSRectClip(bottom);
+    Border(rect, radius, 1, @"fieldBottom");
+    CGContextRestoreGState(Context());
+}
+
 // Glyph points use a top-left origin independently of the containing view.
 static NSPoint GlyphPoint(NSRect rect, CGFloat x, CGFloat y, BOOL flipped) {
     return NSMakePoint(NSMinX(rect) + x, flipped ? NSMinY(rect) + y
@@ -150,6 +190,13 @@ NSSize OSXERBigSurButtonSize(NSButtonCell *cell) {
     [ring stroke];
 }
 
+// OSXER BIGSUR R2 (focus): measured 4 px band (2 inside/2 outside),
+// RGB median #7CAEF6, outer corner fit r3 from x14..18/y196..200.
+- (void) drawTextFieldFocusRingInRect: (NSRect) rect radius: (CGFloat) radius {
+    NSBezierPath *ring = Rounded(rect, MAX(1, radius));
+    [ring setLineWidth: 4]; [Color(@"focusRing") setStroke]; [ring stroke];
+}
+
 // Cell hooks retain model, target/action, hit testing and editing in Cocotron.
 - (BOOL) drawButtonCell: (NSButtonCell *) cell inRect: (NSRect) rect {
     NSString *imageName = [[cell image] name];
@@ -162,10 +209,19 @@ NSSize OSXERBigSurButtonSize(NSButtonCell *cell) {
 
     BOOL flipped = [_view isFlipped];
     BOOL on = [cell state] != NSControlStateValueOff;
+    // OSXER BIGSUR R2 (default and button geometry): setKeyEquivalent: does
+    // not register defaultButtonCell. Reference Return button x245..330,
+    // y40..59 is blue, white lettering; normal white bezel x140..227 (r5).
     BOOL defaulted = !popup && [cell isBordered] &&
-            [[_view window] defaultButtonCell] == cell;
-    NSRect body = CenterHeight(rect, 21 - [cell controlSize] * 2);
-    body = NSInsetRect(body, 0, .5); // regular: 20 pt bezel at y + 0.5
+            ([[_view window] defaultButtonCell] == cell ||
+             ([[_view window] defaultButtonCell] == nil &&
+              [[cell keyEquivalent] isEqualToString: @"\r"]));
+    BOOL small = [cell controlSize] != NSRegularControlSize;
+    NSRect body = CenterHeight(rect, popup ? 20 : (small ? 16 : 20));
+    body = NSInsetRect(body, popup ? 2 : (small ? 5 : 6), 0);
+    body.origin.y += (flipped ? -1 : 1) * ((popup || small) ? 2 : 1);
+    if (popup) body.size.width -= 1; // R2: x86..225, arrow x207..222.
+    if (defaulted) body = NSInsetRect(body, 1, 0); // R2: solid blue x245..330.
     NSRect titleRect = NSInsetRect(body, 8, 0);
     CGContextRef ctx = Context();
     CGContextSaveGState(ctx);
@@ -174,16 +230,27 @@ NSSize OSXERBigSurButtonSize(NSButtonCell *cell) {
         CGContextBeginTransparencyLayer(ctx, NULL);
     }
     if (check || radio) {
-        CGFloat diameter = radio ? 16 : 14;
-        body = NSMakeRect(NSMinX(rect) + 1, NSMidY(rect) - diameter / 2,
+        // OSXER BIGSUR R2 (check/radio): x136..149 (14 px), center y86/120;
+        // control origin x134; title ink starts x156 (6 px gap), corner r3.
+        CGFloat diameter = 14;
+        body = NSMakeRect(NSMinX(rect) + 2, NSMidY(rect) - diameter / 2,
                           diameter, diameter);
-        CGFloat radius = radio ? 8 : 3;
-        ShadowFill(body, radius, on ? @"controlAccentColor" : @"controlColor",
-                   @"buttonShadow", 1, flipped);
-        if (!on) Border(body, radius, .5, @"checkBorder");
+        CGFloat radius = radio ? 7 : 3;
+        if (on) ButtonBezel(body, radius, YES, flipped);
+        else Fill(body, radius, @"controlColor");
+        // OSXER BIGSUR R2 (unchecked rim): side (136,86)=#D1D1D1,
+        // top (143,79)=#BCBCBC, both one pixel; disabled -> #E4/#D9.
+        if (!on) {
+            Border(body, radius, 1, @"checkBorder");
+            CGContextSaveGState(ctx);
+            NSRect top = body; top.size.height = 1;
+            if (!flipped) top.origin.y = NSMaxY(body)-1;
+            NSRectClip(top); Border(body, radius, 1, @"checkTop");
+            CGContextRestoreGState(ctx);
+        }
         if ([cell isHighlighted]) Fill(body, radius, @"separatorColor");
         if (on) {
-            if (radio) Fill(NSInsetRect(body, 5, 5), 3, @"controlColor");
+            if (radio) Fill(NSInsetRect(body, 4, 4), 3, @"controlColor"); // OSXER BIGSUR R2: dot 6 px
             else if ([cell state] == NSControlStateValueMixed) {
                 NSPoint p[] = {GlyphPoint(body, 3.5, 7, flipped), GlyphPoint(body, 10.5, 7, flipped)};
                 StrokeGlyph(p, 2, 2, Color(@"controlColor"));
@@ -199,16 +266,18 @@ NSSize OSXERBigSurButtonSize(NSButtonCell *cell) {
         NSString *fill = defaulted ? @"controlAccentColor" :
                 (([cell isHighlighted] || (on && ([cell showsStateBy] & NSChangeGrayCellMask)))
                         ? @"buttonPressed" : @"controlColor");
-        ShadowFill(body, 5, fill, @"buttonShadow", 1, flipped);
-        if (!defaulted) Border(body, 5, .5, @"buttonBorder");
-        else if ([cell isHighlighted]) Fill(body, 5, @"separatorColor");
+        ButtonBezel(body, 5, defaulted, flipped);
+        if ([cell isHighlighted] || (on && ([cell showsStateBy] & NSChangeGrayCellMask)))
+            Fill(body, 5, fill);
     }
 
     if (popup && [(NSPopUpButtonCell *) cell arrowPosition] != NSPopUpNoArrow) {
         BOOL pullsDown = [(NSPopUpButtonCell *) cell pullsDown];
         NSRect arrow = NSMakeRect(NSMaxX(body) - 19, NSMidY(body) - 8, 16, 16);
-        if (!pullsDown) Fill(arrow, 4, @"controlAccentColor");
-        NSColor *ink = Color(pullsDown ? @"controlTextColor" : @"controlColor");
+        // OSXER BIGSUR R2 (pull-down): both arrow tiles are blue, 16x16 r4;
+        // popup tile x207..222, pull-down x430..445, white 6x3 chevron.
+        ButtonBezel(arrow, 4, YES, flipped);
+        NSColor *ink = Color(@"controlColor");
         if (!pullsDown) {
             NSPoint up[] = {GlyphPoint(arrow, 5, 6, flipped), GlyphPoint(arrow, 8, 3.5, flipped),
                             GlyphPoint(arrow, 11, 6, flipped)};
@@ -251,8 +320,13 @@ NSSize OSXERBigSurButtonSize(NSButtonCell *cell) {
         CGContextRestoreGState(ctx);
     }
     if ([cell imagePosition] != NSImageOnly) {
+        // OSXER BIGSUR R2 (button text baseline): normal ink y44..53,
+        // popup y147..156. V1 normal y42..51 +4 origin delta needs -2;
+        // the measured bezel moved up 1, and the title moves the remaining 1.
+        if (!check && !radio) titleRect.origin.y += flipped ? -1 : 1;
         DrawText([cell titleForHighlight], titleRect,
-                 Color(defaulted ? @"selectedMenuItemTextColor" : @"controlTextColor"),
+                 Color(![cell isEnabled] ? @"disabledButtonInk" :
+                       defaulted ? @"selectedMenuItemTextColor" : @"controlTextColor"),
                  !check && !radio && !popup);
     }
     if (![cell isEnabled]) CGContextEndTransparencyLayer(ctx);
@@ -282,10 +356,21 @@ NSSize OSXERBigSurButtonSize(NSButtonCell *cell) {
     CGFloat radius = (search || [cell bezelStyle] == NSTextFieldRoundedBezel) ? 6 : 0;
     if ([cell isBezeled] || [cell isBordered]) {
         NSColor *background = [cell drawsBackground] ? [cell backgroundColor] : nil;
-        [(background ?: Color(@"textBackgroundColor")) setFill];
-        [Rounded(rect, radius) fill];
-        Border(rect, radius, 1, @"fieldBorder");
-        if ([self cellHasFocus: cell]) [self drawFocusRingInRect: rect radius: radius];
+        if ([cell isEnabled]) {
+            FieldBezel(rect, radius, background ?: Color(@"textBackgroundColor"), [_view isFlipped]);
+        } else {
+            // OSXER BIGSUR R2 (disabled field): measured fill (320,200)=#FB,
+            // top/side (320,198)=#F1, bottom (320,221)=#DC, each 1 px.
+            Fill(rect, radius, @"disabledFieldFill");
+            Border(rect, radius, 1, @"disabledFieldBorder");
+            CGContextSaveGState(Context());
+            NSRect bottom = rect; bottom.size.height = 1;
+            if ([_view isFlipped]) bottom.origin.y = NSMaxY(rect)-1;
+            NSRectClip(bottom); Border(rect, radius, 1, @"disabledFieldBottom");
+            CGContextRestoreGState(Context());
+        }
+        // OSXER BIGSUR R2 (focus): the parent paints the exterior 2 px ring
+        // after children; a cell-local ring was clipped at its view bounds.
     } else if ([cell drawsBackground]) {
         [([cell backgroundColor] ?: Color(@"textBackgroundColor")) setFill];
         NSRectFill([cell drawingRectForBounds: rect]);
@@ -294,29 +379,100 @@ NSSize OSXERBigSurButtonSize(NSButtonCell *cell) {
 }
 
 - (void) drawTextFieldBorderInRect: (NSRect) rect bezeledNotLine: (BOOL) bezeled {
-    Fill(rect, 0, @"textBackgroundColor");
-    Border(rect, 0, 1, @"fieldBorder");
+    FieldBezel(rect, 0, Color(@"textBackgroundColor"), [_view isFlipped]);
 }
 
 - (void) drawSearchGlyphsInRect: (NSRect) rect cancelRect: (NSRect) cancel
                       enabled: (BOOL) enabled showsCancel: (BOOL) showsCancel {
     BOOL flipped = [_view isFlipped];
     NSRect glyph = NSMakeRect(NSMidX(rect) - 6, NSMidY(rect) - 6, 12, 12);
-    NSColor *ink = Color(enabled ? @"secondaryLabelColor" : @"disabledControlTextColor");
+    // OSXER BIGSUR R2 (search glyphs): magnifier bbox x616..628/y203..215;
+    // 1 px stroke; cancel dark disk x725..737/y203..215, white 5 px cross.
+    NSColor *ink = Color(enabled ? @"controlTextColor" : @"disabledControlTextColor");
     NSRect lens = NSMakeRect(NSMinX(glyph) + .5,
             flipped ? NSMinY(glyph) + .5 : NSMaxY(glyph) - 8.5, 8, 8);
     NSBezierPath *circle = [NSBezierPath bezierPathWithOvalInRect: lens];
-    [circle setLineWidth: 1.5];
+    [circle setLineWidth: 1];
     [ink setStroke];
     [circle stroke];
     NSPoint handle[] = {GlyphPoint(glyph, 7.5, 7.5, flipped), GlyphPoint(glyph, 11, 11, flipped)};
-    StrokeGlyph(handle, 2, 1.5, ink);
+    StrokeGlyph(handle, 2, 1, ink);
     if (showsCancel) {
-        NSRect r = NSMakeRect(NSMidX(cancel) - 5, NSMidY(cancel) - 5, 10, 10);
-        NSPoint a[] = {GlyphPoint(r, 2, 2, flipped), GlyphPoint(r, 8, 8, flipped)};
-        NSPoint b[] = {GlyphPoint(r, 8, 2, flipped), GlyphPoint(r, 2, 8, flipped)};
-        StrokeGlyph(a, 2, 1.5, ink);
-        StrokeGlyph(b, 2, 1.5, ink);
+        NSRect r = NSMakeRect(NSMidX(cancel) - 6.5, NSMidY(cancel) - 6.5, 13, 13);
+        [ink setFill]; [[NSBezierPath bezierPathWithOvalInRect: r] fill];
+        NSPoint a[] = {GlyphPoint(r, 4.5, 4.5, flipped), GlyphPoint(r, 8.5, 8.5, flipped)};
+        NSPoint b[] = {GlyphPoint(r, 8.5, 4.5, flipped), GlyphPoint(r, 4.5, 8.5, flipped)};
+        StrokeGlyph(a, 2, 1, Color(@"controlColor"));
+        StrokeGlyph(b, 2, 1, Color(@"controlColor"));
+    }
+}
+
+// OSXER BIGSUR R2 (combo): measured field 218x22, corner fit r6;
+// accent tile 16x16 r4, white 6x3 down chevron, stroke fit 1.4 px.
+- (void) drawComboBoxBezelInRect: (NSRect) rect {
+    FieldBezel(rect, 6, Color(@"textBackgroundColor"), [_view isFlipped]);
+}
+- (void) drawComboBoxButtonInRect: (NSRect) rect enabled: (BOOL) enabled
+                       bordered: (BOOL) bordered pressed: (BOOL) pressed {
+    if (bordered) ButtonBezel(rect, 4, YES, [_view isFlipped]);
+    if (pressed) Fill(rect, 4, @"separatorColor");
+    NSPoint p[] = {GlyphPoint(rect, 5, 6.5, [_view isFlipped]),
+                  GlyphPoint(rect, 8, 9, [_view isFlipped]),
+                  GlyphPoint(rect, 11, 6.5, [_view isFlipped])};
+    StrokeGlyph(p, 3, 1.4, Color(enabled ? @"controlColor" : @"disabledControlTextColor"));
+}
+
+// OSXER BIGSUR R2 (stepper paths): reference body x88..101/y276..295,
+// upper/lower chevrons x92..97/y279..282 and y290..293, fit 1.5 px stroke.
+// Frame is 20x28; inset 3 horizontally, 4 vertically, 14x20 rounded body.
+- (void) drawStepperButtonInRect: (NSRect) rect clipRect: (NSRect) clip
+                       enabled: (BOOL) enabled highlighted: (BOOL) highlighted
+                     upNotDown: (BOOL) up {
+    BOOL flipped = [_view isFlipped];
+    NSRect body = NSInsetRect(clip, MAX(0, (NSWidth(clip)-14)/2), MAX(0, (NSHeight(clip)-20)/2));
+    CGContextSaveGState(Context());
+    NSRectClip(rect);
+    ButtonBezel(body, 6, NO, flipped);
+    if (highlighted) Fill(body, 6, @"buttonPressed");
+    NSRect divider = NSMakeRect(NSMinX(body), floor(NSMidY(body)), NSWidth(body), 1);
+    Fill(divider, 0, @"fieldBorder");
+    NSRect glyph = NSMakeRect(NSMidX(body)-3, NSMidY(rect)-2, 6, 4);
+    NSPoint p[] = {GlyphPoint(glyph, 1, up ? 3 : 1, flipped),
+                  GlyphPoint(glyph, 3, up ? 1 : 3, flipped),
+                  GlyphPoint(glyph, 5, up ? 3 : 1, flipped)};
+    StrokeGlyph(p, 3, 1.5, Color(enabled ? @"controlTextColor" : @"disabledControlTextColor"));
+    CGContextRestoreGState(Context());
+}
+
+// OSXER BIGSUR R2 (well): outer x72..117/y537..562 = 46x26, r5;
+// swatch x76..113/y540..559, 1 px #CCCCCC border, r2 fit.
+- (NSRect) drawColorWellBorderInRect: (NSRect) rect enabled: (BOOL) enabled
+                          bordered: (BOOL) bordered active: (BOOL) active {
+    if (!bordered) return rect;
+    NSRect body = NSInsetRect(rect, 2, 2);
+    ButtonBezel(body, 5, NO, [_view isFlipped]);
+    NSRect swatch = NSInsetRect(body, 4, 3);
+    Border(swatch, 2, 1, @"wellBorder");
+    if (active) [self drawFocusRingInRect: body radius: 5];
+    return NSInsetRect(swatch, 1, 1);
+}
+
+// OSXER BIGSUR R2 (level): ten 18x16 blocks across x455..634/y540..555;
+// fit r2, 1 px outline. Active #28CD41/#23B239, empty #E5E5E5/#C7C7C7.
+- (void) drawLevelCell: (NSLevelIndicatorCell *) cell inRect: (NSRect) rect {
+    double span = [cell maxValue] - [cell minValue];
+    if (!isfinite(span) || span <= 0 || NSIsEmptyRect(rect)) return;
+    NSInteger count = MIN(ceil(span), MAX(1, floor(NSWidth(rect))));
+    double value = fmin(span, fmax(0, [cell doubleValue] - [cell minValue]));
+    rect = CenterHeight(rect, 16);
+    rect.origin.y += [_view isFlipped] ? -1 : 1;
+    for (NSInteger i = 0; i < count; ++i) {
+        NSRect block = rect;
+        block.origin.x += floor(i * NSWidth(rect) / count);
+        block.size.width = floor((i+1) * NSWidth(rect) / count) - floor(i * NSWidth(rect) / count);
+        BOOL on = (i * span / count) < value;
+        Fill(block, 2, on ? @"levelFill" : @"levelEmpty");
+        Border(block, 2, 1, on ? @"levelBorder" : @"levelEmptyBorder");
     }
 }
 
@@ -372,25 +528,32 @@ NSSize OSXERBigSurButtonSize(NSButtonCell *cell) {
 }
 - (void) drawSliderTrackInRect: (NSRect) rect vertical: (BOOL) vertical hasTickMarks: (BOOL) ticks {
     NSCell *cell = [_view isKindOfClass: [NSControl class]] ? [(NSControl *) _view selectedCell] : nil;
-    if (vertical) { rect.origin.x = NSMidX(rect) - 2; rect.size.width = 4; rect = NSInsetRect(rect, 0, 10); }
-    else { rect.origin.y = NSMidY(rect) - 2; rect.size.height = 4; rect = NSInsetRect(rect, 10, 0); }
+    if (vertical) { rect.origin.x = NSMidX(rect) - 2; rect.size.width = 4; rect = NSInsetRect(rect, 0, 2); }
+    else { rect.origin.y = NSMidY(rect) - 2; rect.size.height = 4; rect = NSInsetRect(rect, 2, 0); }
     Fill(rect, 2, @"sliderTrack");
-    if ([cell isKindOfClass: [NSSliderCell class]]) {
+    // OSXER BIGSUR R2 (rail): x392..557/y244..247 = 166x4, r2;
+    // tick rail x572..737 has no blue segment in the reference.
+    if (!ticks && [cell isKindOfClass: [NSSliderCell class]]) {
         NSSliderCell *slider = (NSSliderCell *) cell;
         double span = [slider maxValue] - [slider minValue];
         double fraction = span > 0 ? ([slider doubleValue] - [slider minValue]) / span : 0;
         fraction = fmin(1, fmax(0, fraction));
         // Cocotron's knob mapping runs min -> max along increasing coordinates.
         NSRect fill = rect;
-        if (vertical) fill.size.height *= fraction; else fill.size.width *= fraction;
+        // Knob travel keeps the 10 px disk radius; rail begins at inset 2.
+        if (vertical) fill.size.height = 8 + (NSHeight(rect)-16)*fraction;
+        else fill.size.width = 8 + (NSWidth(rect)-16)*fraction;
         Fill(fill, 2, @"controlAccentColor");
     }
 }
 - (void) drawSliderKnobInRect: (NSRect) rect vertical: (BOOL) vertical
                   highlighted: (BOOL) highlighted hasTickMarks: (BOOL) ticks
              tickMarkPosition: (NSTickMarkPosition) position {
-    ShadowFill(rect, 10, @"controlColor", @"knobShadow", 2, [_view isFlipped]);
-    Border(rect, 10, .5, @"fieldBorder");
+    // OSXER BIGSUR R2 (knob): tick capsule r5 (10x20), normal disk r10;
+    // bottom gray support extends 1 px beyond y255, outline is 1 px.
+    CGFloat radius = ticks ? 5 : 10;
+    ButtonBezel(rect, radius, NO, [_view isFlipped]);
+    Border(rect, radius, .5, @"fieldBorder");
     if (highlighted) Fill(rect, 10, @"boxFill");
     if ([_view isKindOfClass: [NSControl class]] &&
         [self cellHasFocus: [(NSControl *) _view selectedCell]])
@@ -434,14 +597,16 @@ NSSize OSXERBigSurButtonSize(NSButtonCell *cell) {
     [self drawScrollerTrackInRect: rect vertical: vertical];
 }
 - (void) drawScrollerTrackInRect: (NSRect) rect vertical: (BOOL) vertical {
-    Fill(rect, 0, @"controlColor");
-    if (vertical) rect.size.width = .5; else rect.size.height = .5;
+    Fill(rect, 0, @"scrollerTrack");
+    if (vertical) rect.size.width = 1; else rect.size.height = .5;
     Fill(rect, 0, @"hairline");
 }
 - (void) drawScrollerKnobInRect: (NSRect) rect vertical: (BOOL) vertical highlight: (BOOL) highlight {
-    if (vertical) { rect.origin.x = NSMidX(rect) - 3.5; rect.size.width = 7; rect = NSInsetRect(rect, 0, 2); }
-    else { rect.origin.y = NSMidY(rect) - 3.5; rect.size.height = 7; rect = NSInsetRect(rect, 2, 0); }
-    Fill(rect, 3.5, highlight ? @"scrollerKnobHover" : @"scrollerKnob");
+    // OSXER BIGSUR R2 (scroller): ref thumb x356..363 = 8 px, track
+    // x352..366 = 15 px, #C2C2C2 on #FAFAFA, y372 start = 3 px inset.
+    if (vertical) { rect.origin.x = round(NSMidX(rect) - 4); rect.size.width = 8; rect = NSInsetRect(rect, 0, 3); }
+    else { rect.origin.y = round(NSMidY(rect) - 4); rect.size.height = 8; rect = NSInsetRect(rect, 3, 0); }
+    Fill(rect, 4, highlight ? @"scrollerKnobHover" : @"scrollerKnob");
 }
 
 - (void) drawTableViewHeaderInRect: (NSRect) rect highlighted: (BOOL) highlighted {
@@ -457,7 +622,8 @@ NSSize OSXERBigSurButtonSize(NSButtonCell *cell) {
     NSMutableAttributedString *title = [[text mutableCopy] autorelease];
     [title addAttribute: NSFontAttributeName value: [NSFont systemFontOfSize: 11]
                  range: NSMakeRange(0, [title length])];
-    DrawText(title, NSInsetRect(rect, 5, 0), Color(@"headerTextColor"), NO);
+    // OSXER BIGSUR R2 (header inset): ink x25 vs content x17 = 8 px.
+    DrawText(title, NSInsetRect(rect, 8, 0), Color(@"headerTextColor"), NO);
 }
 - (void) drawTableBackground: (NSTableView *) table clipRect: (NSRect) rect {
     [( [table backgroundColor] ?: Color(@"controlBackgroundColor")) setFill];
@@ -506,7 +672,9 @@ NSSize OSXERBigSurButtonSize(NSButtonCell *cell) {
 }
 
 - (void) drawBoxWithLineInRect: (NSRect) rect {
-    Fill(rect, 6, @"boxFill"); Border(rect, 6, 1, @"separatorColor");
+    // OSXER BIGSUR R2 (box): edge #E4E4E4, fill #EEEEEE; corner fit r4
+    // from (393..400,460..467), 1 px edge.
+    Fill(rect, 4, @"boxFill"); Border(rect, 4, 1, @"boxBorder");
 }
 - (void) drawBoxWithBezelInRect: (NSRect) rect clipRect: (NSRect) clip { [self drawBoxWithLineInRect: rect]; }
 - (void) drawBoxWithGrooveInRect: (NSRect) rect clipRect: (NSRect) clip { [self drawBoxWithLineInRect: rect]; }

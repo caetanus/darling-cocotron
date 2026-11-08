@@ -224,6 +224,15 @@ static NSLock *_cacheLock = nil;
                       size: (CGFloat) size
               fallbackName: (NSString *) fallbackName
 {
+    // OSXER BIGSUR R2 (measured font fallback): Noto Sans wins total ink
+    // width+height error over eight PNG strings (11 px vs Liberation 20,
+    // Nimbus 23, Roboto 24, Cantarell 25, DejaVu 35). At 11 pt its advances
+    // Placeholder=60.969, Push buttons=68.594; PNG ink=61x8 and 68x8.
+    // Installed OFL scalable face, resolved by fontconfig; no bundled font.
+    if (OSXERBigSurEnabled() && [fallbackName isEqualToString: @"San Francisco"]) {
+        NSFont *measured = [NSFont fontWithName: @"Noto Sans" size: size ?: [self systemFontSize]];
+        if (measured != nil) return measured;
+    }
     NSFont *result = nil;
     CTFontRef ctFont = CTFontCreateUIFontForLanguage(type, size, nil);
     if (ctFont) {
@@ -328,6 +337,8 @@ static NSLock *_cacheLock = nil;
 }
 
 + (NSFont *) userFontOfSize: (CGFloat) size {
+    // OSXER BIGSUR R2 (font consistency): NSCell defaults use this entry too.
+    if (OSXERBigSurEnabled()) return [self systemFontOfSize: size];
     return [NSFont fontWithName: [O2Font postscriptNameForDisplayName:
                                                  @"San Francisco"]
                            size: (size == 0) ? [self systemFontSize] : size];

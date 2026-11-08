@@ -32,7 +32,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSKeyedArchiver.h>
 
 // OSXER: reserve the knob radius in drawing AND tracking.
-#define PIXELINSET (OSXERBigSurEnabled() ? 10 : 8)
+#define PIXELINSET (OSXERBigSurEnabled() ? (_numberOfTickMarks > 0 ? 3 : 10) : 8) // OSXER BIGSUR R2: tick centers x573..737
 #define TICKHEIGHT (OSXERBigSurEnabled() ? 4 : 8)
 
 @interface NSColorScaleSliderCell : NSSliderCell
@@ -287,6 +287,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (NSRect) rectOfTickMarkAtIndex: (NSInteger) index {
     NSRect result;
+    // OSXER BIGSUR R2 (ticks): cross the rail at y242..249 (8 px), 2 px
+    // wide; endpoint centers x573/737, approx 41 px pitch, not below the knob.
+    if (OSXERBigSurEnabled()) {
+        NSRect track = [self _sliderRect];
+        CGFloat length = (_isVertical ? NSHeight(track) : NSWidth(track))-6;
+        CGFloat t = _numberOfTickMarks > 1 ? (CGFloat)index/(_numberOfTickMarks-1) : .5;
+        if (_isVertical) return NSMakeRect(NSMidX(track)-4, round(NSMinY(track)+3+t*length)-1, 8, 2);
+        return NSMakeRect(round(NSMinX(track)+3+t*length)-1, NSMidY(track)-4, 2, 8);
+    }
     CGFloat length =
             (_isVertical ? _lastRect.size.height : _lastRect.size.width) -
             2 * PIXELINSET;
@@ -323,6 +332,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (NSRect) _sliderRect {
     NSRect result = _lastRect;
+    // OSXER BIGSUR R2 (slider axis): gallery frame y234..261, rail center
+    // y246, i.e. 2 px above frame midpoint; ticks share this axis.
+    if (OSXERBigSurEnabled()) {
+        if ([self isVertical]) result.origin.x -= 2;
+        else result.origin.y += [[self controlView] isFlipped] ? -2 : 2;
+        return result;
+    }
 
     if (_numberOfTickMarks > 0) {
         if ([self isVertical]) {
@@ -346,6 +362,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     NSRect knobRect;
     NSSize knobSize = [[_controlView graphicsStyle]
             sliderKnobSizeForControlSize: [self controlSize]];
+    // OSXER BIGSUR R2 (tick knob): white x635..642, outline x634/643,
+    // y236..255 = 10x20 capsule; plain knob remains the measured 20px disk.
+    if (OSXERBigSurEnabled() && _numberOfTickMarks > 0) knobSize = NSMakeSize(10, 20);
+    percent = fmin(1, fmax(0, percent));
 
     if ([self isVertical]) {
         knobRect.size.height = knobSize.width;
@@ -369,6 +389,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                       (sliderRect.size.height - knobSize.height) / 2);
     }
 
+    if (OSXERBigSurEnabled() && _numberOfTickMarks > 0) {
+        if ([self isVertical]) knobRect.origin.y = round(NSMinY(sliderRect)+PIXELINSET+
+            percent*(NSHeight(sliderRect)-2*PIXELINSET)-knobSize.width/2);
+        else knobRect.origin.x = round(NSMinX(sliderRect)+PIXELINSET+
+            percent*(NSWidth(sliderRect)-2*PIXELINSET)-knobSize.width/2);
+    }
     return knobRect;
 }
 
@@ -598,7 +624,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         position = point.x - (_lastRect.origin.x + PIXELINSET);
     }
 
-    percentPixels = position / length;
+    percentPixels = length > 0 ? position / length : 0; // OSXER BIGSUR R2: tiny control guard
 
 #if 0
     NSLog(@"percentPixels is %g; max-min is %g", percentPixels, _maxValue - _minValue);

@@ -22,6 +22,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 @implementation NSSearchField
 
+// OSXER BIGSUR R2 (programmatic cells): inherited cellClass returned a generic/nil cell.
++ (Class) cellClass { return [NSSearchFieldCell class]; }
+
 - (NSSearchFieldCell *) _searchCell {
     return [self cell];
 }

@@ -27,6 +27,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSWindow.h>
 
 @implementation NSStepperCell
+// OSXER BIGSUR R2 (programmatic stepper): inherited initialization left increment=0.
+// OSXER BIGSUR R2 (initializer dispatch): NSCell -init uses initImageCell:.
+- init { return [self initTextCell: @""]; }
+- initTextCell: (NSString *) string {
+    if ((self = [super initTextCell: string])) {
+        _increment = 1; _maxValue = 59; _autorepeat = YES; _valueWraps = YES;
+    }
+    return self;
+}
 - (void) encodeWithCoder: (NSCoder *) coder {
     NSUnimplementedMethod();
 }

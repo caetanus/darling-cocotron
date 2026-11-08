@@ -22,6 +22,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 @implementation NSLevelIndicator
 
+// OSXER BIGSUR R2 (programmatic cells): inherited cellClass returned a generic/nil cell.
++ (Class) cellClass { return [NSLevelIndicatorCell class]; }
+
 - (NSLevelIndicatorCell *) _indicatorCell {
     return [self cell];
 }

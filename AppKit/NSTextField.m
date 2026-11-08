@@ -16,6 +16,7 @@ FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
+#import "NSInterfacePart/OSXERSystemPalette.h" // OSXER BIGSUR R2 (focus invalidation)
 #import "NSKeyValueBinding/NSObject+BindingSupport.h"
 #import "NSKeyValueBinding/NSTextFieldBinder.h"
 #import <AppKit/NSApplication.h>
@@ -125,6 +126,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (BOOL) isFlipped {
     return YES;
+}
+
+// OSXER BIGSUR R2 (focus invalidation): include the measured exterior 2 px
+// on edits, focus acquisition and teardown without changing control geometry.
+- (void) setNeedsDisplay: (BOOL) flag {
+    [super setNeedsDisplay: flag];
+    if (flag && OSXERBigSurEnabled() && ([_cell isBezeled] || [_cell isBordered]))
+        [[self superview] setNeedsDisplayInRect: NSInsetRect([self frame], -2, -2)];
 }
 
 - (BOOL) isOpaque {
@@ -262,6 +271,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                      delegate: self
                         start: range.location
                        length: range.length];
+        [self setNeedsDisplay: YES]; // OSXER BIGSUR R2 (focus acquisition).
     }
 }
 

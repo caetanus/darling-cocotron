@@ -1,3 +1,4 @@
+#import "NSInterfacePart/OSXERSystemPalette.h" // OSXER BIGSUR R2 (table border)
 /* Copyright (c) 2006-2007 Christopher J. W. Lloyd <cjwl@objc.net>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -471,6 +472,9 @@ static Class _rulerViewClass = nil;
         [_headerClipView
                 setAutoresizingMask: NSViewWidthSizable | NSViewHeightSizable];
         [_headerClipView setAutoresizesSubviews: YES];
+    } else if ([_headerClipView documentView] != [self _headerView]) {
+        // OSXER BIGSUR R2 (header replacement): a new document has a new header.
+        [_headerClipView setDocumentView: [self _headerView]];
     }
 
     if ([self _cornerView] == nil) {
@@ -656,7 +660,9 @@ static Class _rulerViewClass = nil;
 
 - (void) setDocumentView: (NSView *) view {
     [_clipView setDocumentView: view];
-    [self reflectScrolledClipView: _clipView];
+    // OSXER BIGSUR R2 (missing header): installing the document after enabling
+    // scrollers never tiled it. Reference header y341..368 is 28 px high.
+    [self tile];
 }
 
 - (void) setContentView: (NSClipView *) clipView {
@@ -968,6 +974,12 @@ static Class _rulerViewClass = nil;
         NSRectFill(rect);
     }
 
+    // OSXER BIGSUR R2 (table frame): x16/y340 and x367/y509 = 1 px #E5E5E5.
+    if (OSXERBigSurEnabled() && _borderType != NSNoBorder) {
+        [[NSColor colorWithCalibratedWhite: 229.0/255 alpha: 1] set];
+        NSFrameRectWithWidth(_bounds, 1);
+        return;
+    }
     switch (_borderType) {
     case NSNoBorder:
         break;

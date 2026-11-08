@@ -80,6 +80,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     _arrowPosition = NSPopUpArrowAtCenter;
     _preferredEdge = NSMaxYEdge;
     _pullsDown = pullDown;
+    // OSXER BIGSUR R2 (popup bezel): reference body x86..225, y143..162,
+    // with an accent 16x16 arrow for both popup and pull-down.
+    [self setBordered: YES];
+    [self setBezelStyle: NSRoundedBezelStyle];
     return self;
 }
 

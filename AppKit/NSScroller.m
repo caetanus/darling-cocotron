@@ -36,7 +36,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 + (CGFloat) scrollerWidth {
     // OSXER: legacy layout with the narrow, arrowless Big Sur appearance.
-    if (OSXERBigSurEnabled()) return 11;
+    // OSXER BIGSUR R2 (scroller): reference track x352..366 is 15 px.
+    if (OSXERBigSurEnabled()) return 15;
     return [[NSDisplay currentDisplay] scrollerWidth];
 }
 

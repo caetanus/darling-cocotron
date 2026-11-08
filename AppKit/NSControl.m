@@ -553,6 +553,7 @@ static NSMutableDictionary *cellClassDictionary = nil;
 
         [_currentEditor release];
         _currentEditor = nil;
+        [self setNeedsDisplay: YES]; // OSXER BIGSUR R2 (erase old field focus).
     }
     return NO;
 }

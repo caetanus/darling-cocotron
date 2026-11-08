@@ -19,6 +19,10 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
+// OSXER BIGSUR R2 (exterior field focus): parent owns the pixels outside bounds.
+#import "NSInterfacePart/OSXERBigSurGraphicsStyle.h"
+#import <AppKit/NSTextField.h>
+#import <AppKit/NSTextFieldCell.h>
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSClipView.h>
 #import <AppKit/NSColor.h>
@@ -2504,6 +2508,23 @@ static NSView *viewBeingPrinted = nil;
 
             if (!NSIsEmptyRect(check))
                 [child displayRectIgnoringOpacity: check];
+        }
+        // OSXER BIGSUR R2 (focus clipping): PNG field x16..153/y198..221,
+        // outer ring x14..155/y196..223. Paint in the parent's clip so the
+        // 2 px exterior survives; repainting the parent also erases old focus.
+        if (OSXERBigSurEnabled()) {
+            for (NSView *field in [self subviews]) {
+                if (![field isKindOfClass: [NSTextField class]] || [field isHidden]) continue;
+                NSTextFieldCell *cell = [(NSTextField *)field cell];
+                OSXERBigSurGraphicsStyle *style = (id)[field graphicsStyle];
+                if (([cell isBezeled] || [cell isBordered]) && [style cellHasFocus: cell]) {
+                    [self lockFocus];
+                    NSRectClip(rect);
+                    [style drawTextFieldFocusRingInRect: [self convertRect: [field bounds] fromView: field]
+                                                radius: [field isKindOfClass: NSClassFromString(@"NSSearchField")] ? 6 : 0];
+                    [self unlockFocus];
+                }
+            }
         }
     }
 

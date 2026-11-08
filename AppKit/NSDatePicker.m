@@ -23,6 +23,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 @implementation NSDatePicker
 
+// OSXER BIGSUR R2 (programmatic cells): inherited cellClass returned a generic/nil cell.
++ (Class) cellClass { return [NSDatePickerCell class]; }
+
 - (BOOL) acceptsFirstResponder {
     return YES;
 }

@@ -141,7 +141,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (NSRect) searchButtonRectForBounds: (NSRect) rect {
     if (OSXERBigSurEnabled())
-        return NSMakeRect(NSMinX(rect) + 5, NSMidY(rect) - 7, 14, 14);
+        return NSMakeRect(NSMinX(rect) + 7, NSMidY(rect) - 7, 14, 14); // OSXER BIGSUR R2: center x622
     NSRect result = [self titleRectForBounds: rect];
 
     result.size.width = result.size.height;
@@ -152,7 +152,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (NSRect) cancelButtonRectForBounds: (NSRect) rect {
     if (OSXERBigSurEnabled())
-        return NSMakeRect(NSMaxX(rect) - 19, NSMidY(rect) - 7, 14, 14);
+        return NSMakeRect(NSMaxX(rect) - 21.5, NSMidY(rect) - 7.5, 14, 14); // OSXER BIGSUR R2: center x731.5,y209.5
     NSRect result = [self titleRectForBounds: rect];
 
     result.origin.x += result.size.width;
@@ -171,7 +171,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (NSRect) titleRectForBounds: (NSRect) rect {
     // OSXER: reserve the same glyph space for drawing, editing and hit testing.
-    if (OSXERBigSurEnabled()) return NSInsetRect(rect, 23, 3);
+    // OSXER BIGSUR R2 (search text): ink x637 (29 from frame), baseline
+    // shared with other fields; reserve 28 px plus the font left bearing.
+    if (OSXERBigSurEnabled()) {
+        rect = NSInsetRect(rect, 0, 3); // OSXER BIGSUR R2: Find ink y205, frame top198, bearing4
+        rect.origin.x += 28; rect.size.width -= 52;
+        return rect;
+    }
     CGFloat radius = rect.size.height / 2;
     NSRect result = [super titleRectForBounds: rect];
 

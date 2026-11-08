@@ -1,3 +1,4 @@
+#import "NSInterfacePart/OSXERSystemPalette.h" // OSXER BIGSUR R2 (window background)
 /* Copyright (c) 2006-2007 Christopher J. W. Lloyd <cjwl@objc.net>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -441,6 +442,10 @@ NSNotificationName const NSSystemColorsDidChangeNotification = @"NSSystemColorsD
 }
 
 + (NSColor *) windowBackgroundColor {
+    // OSXER BIGSUR R2 (window background): #F6F6F6 at (10,100), not the
+    // #FFFFFF control bezel. Resolve the distinct semantic palette entry.
+    if (OSXERBigSurEnabled())
+        return [NSColor colorWithCatalogName: @"System" colorName: @"windowBackgroundColor"];
     return [NSColor controlColor];
 }
 

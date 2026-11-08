@@ -17,6 +17,10 @@
  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE. */
+#import "NSInterfacePart/OSXERSystemPalette.h" // OSXER BIGSUR R2 (editing placeholder)
+#import <AppKit/NSTextField.h>
+#import <AppKit/NSTextFieldCell.h>
+#import <AppKit/NSStringDrawing.h>
 #import "NSTextViewSharedData.h"
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSAttributedString.h>
@@ -3132,6 +3136,23 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
     if ([self drawsBackground]) {
         [_backgroundColor setFill];
         NSRectFill(rect);
+    }
+    // OSXER BIGSUR R2 (editing placeholder): the field editor covers the
+    // cell's placeholder. Render the hint here, using editor text, so typing
+    // removes it immediately and deleting the last character restores it.
+    // PNG hint ink begins (21,204), #C0C0C0; share the normal text origin.
+    if (OSXERBigSurEnabled() && [self isFieldEditor] && [[self string] length] == 0 &&
+        [[self delegate] isKindOfClass: [NSTextField class]]) {
+        NSTextFieldCell *cell = [(NSTextField *)[self delegate] cell];
+        NSAttributedString *hint = [cell placeholderAttributedString];
+        if (hint == nil && [[cell placeholderString] length]) {
+            hint = [[[NSAttributedString alloc] initWithString: [cell placeholderString]
+                    attributes: [NSDictionary dictionaryWithObjectsAndKeys:
+                        [self font], NSFontAttributeName,
+                        [NSColor colorWithCalibratedWhite: 192.0/255 alpha: 1],
+                        NSForegroundColorAttributeName, nil]] autorelease];
+        }
+        [hint drawAtPoint: origin];
     }
     [layoutManager drawBackgroundForGlyphRange: gRange atPoint: origin];
     [layoutManager drawGlyphsForGlyphRange: gRange atPoint: origin];

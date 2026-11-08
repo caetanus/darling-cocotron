@@ -1,12 +1,17 @@
 #import <AppKit/NSGraphicsStyle.h>
 #import "OSXERSystemPalette.h"
 
-@class NSButtonCell, NSTextFieldCell, NSSegmentedCell, NSTabView, NSTableView;
+@class NSLevelIndicatorCell, NSButtonCell, NSTextFieldCell, NSSegmentedCell, NSTabView, NSTableView;
 
 BOOL OSXERBigSurDrawsButton(NSButtonCell *cell);
 NSSize OSXERBigSurButtonSize(NSButtonCell *cell);
 
 @interface OSXERBigSurGraphicsStyle : NSGraphicsStyle
+// OSXER BIGSUR R2 (focus): parent overlay, 4 px stroke centered on field edge.
+- (BOOL) cellHasFocus: (NSCell *) cell;
+- (void) drawTextFieldFocusRingInRect: (NSRect) rect radius: (CGFloat) radius;
+- (void) drawLevelCell: (NSLevelIndicatorCell *) cell inRect: (NSRect) rect; // OSXER BIGSUR R2
+- (void) drawComboBoxBezelInRect: (NSRect) rect; // OSXER BIGSUR R2 (combo)
 - (BOOL) drawButtonCell: (NSButtonCell *) cell inRect: (NSRect) rect;
 - (void) drawTextFieldCell: (NSTextFieldCell *) cell inRect: (NSRect) rect;
 - (void) drawSearchGlyphsInRect: (NSRect) rect cancelRect: (NSRect) cancel

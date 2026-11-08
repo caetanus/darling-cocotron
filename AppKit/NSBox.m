@@ -122,7 +122,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
     [super initWithFrame: frame];
 
-    _isTransparent = YES;
+    // OSXER BIGSUR R2 (box initialization): reference has a visible title,
+    // fill #EEEEEE and 1 px #E4E4E4 border, not an explicitly transparent box.
+    _isTransparent = NO;
     _titleCell = [[NSTextFieldCell alloc] initTextCell: @""];
     if (OSXERBigSurEnabled()) [_titleCell setFont: [NSFont systemFontOfSize: 11]];
     _borderType = NSLineBorder;
@@ -321,6 +323,28 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
     if ([self isTransparent])
         return;
+
+    // OSXER BIGSUR R2 (separator): y308, x16..743, 1 px #DEDEDE;
+    // do not subtract a nonexistent title from its 2 px frame.
+    if (OSXERBigSurEnabled() && _boxType == NSBoxSeparator) {
+        [[NSColor colorWithCalibratedWhite: 222.0/255 alpha: 1] setFill];
+        NSRect line = _bounds;
+        if (NSWidth(line) >= NSHeight(line)) {
+            line.origin.y = floor(NSMidY(line)); line.size.height = 1;
+        } else { line.origin.x = floor(NSMidX(line)); line.size.width = 1; }
+        NSRectFill(line);
+        return;
+    }
+    // OSXER BIGSUR R2 (titled box): reference outer x393..738/y460..505;
+    // frame x390/y446/352x64 -> inset x3, bottom4, title band14; ink x405.
+    if (OSXERBigSurEnabled() && _boxType != NSBoxCustom &&
+        _titlePosition == NSAboveTop && _borderType != NSNoBorder) {
+        grooveRect = NSMakeRect(NSMinX(_bounds)+3, NSMinY(_bounds)+4, NSWidth(_bounds)-6, NSHeight(_bounds)-18);
+        titleRect = NSMakeRect(NSMinX(_bounds)+13, NSMaxY(_bounds)-14, NSWidth(_bounds)-26, 14);
+        [[self graphicsStyle] drawBoxWithLineInRect: grooveRect];
+        [_titleCell drawWithFrame: titleRect inView: self];
+        return;
+    }
 
     switch (_titlePosition) {
 

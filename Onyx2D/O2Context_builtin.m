@@ -172,11 +172,44 @@ void O2DContextClipAndFillEdges(O2Context_builtin *self, int fillRuleMask);
 
 - (void) endTransparencyLayer {
     O2LayerRef layer = O2LayerRetain([self->_layerStack lastObject]);
+    if (layer == nil) return;
 
     O2ContextRestoreGState(self);
     [self->_layerStack removeLastObject];
 
     O2Size size = [self size];
+
+    // OSXER BIGSUR R2 (disabled layers): the layer already contains DEVICE
+    // pixels. Reapplying the control's translated/flipped CTM moved its pixels
+    // outside the control clip. Cancel drawImage's image flip when compositing.
+    // Reference disabled bezel #FBFBFB over #F6F6F6 vs enabled #FFFFFF is ~50%.
+    // Apply group alpha once to premultiplied pixels, including nested layers;
+    // drawImage's normal-image paint currently ignores the state's alpha.
+    O2GState *state = O2ContextCurrentGState(self);
+    O2AffineTransform savedDeviceTransform = state->_deviceSpaceTransform;
+    state->_deviceSpaceTransform = O2AffineTransformMake(1, 0, 0, -1, 0, size.height);
+    O2Surface *surface = O2LayerGetSurface(layer);
+    O2Float alpha = fmin(1, fmax(0, O2GStateAlpha(state)));
+    if (alpha < 1) {
+        O2SurfaceLock(surface);
+        for (int y = 0; y < (int)size.height; ++y) {
+            for (int x = 0; x < (int)size.width; x += 256) {
+                O2argb8u buffer[256];
+                int count = MIN(256, (int)size.width - x);
+                O2argb8u *pixels = O2Image_read_argb8u(surface, x, y, buffer, count);
+                if (pixels == NULL) pixels = buffer;
+                for (int i = 0; i < count; ++i) {
+                    pixels[i].r = lrint(pixels[i].r * alpha);
+                    pixels[i].g = lrint(pixels[i].g * alpha);
+                    pixels[i].b = lrint(pixels[i].b * alpha);
+                    pixels[i].a = lrint(pixels[i].a * alpha);
+                }
+                if (pixels == buffer)
+                    O2SurfaceWriteSpan_argb8u_PRE(surface, x, y, buffer, count);
+            }
+        }
+        O2SurfaceUnlock(surface);
+    }
 
     if (O2ContextCurrentGState(self)->_shadowKernel) {
         O2Surface *shadow =
@@ -192,11 +225,12 @@ void O2DContextClipAndFillEdges(O2Context_builtin *self, int fillRuleMask);
                            O2ContextCurrentGState(self)->_shadowOffset.height,
                            size.width, size.height),
                 shadow);
-        [shadow release];
+        [shadow release]; // OSXER BIGSUR R2 (disabled layers): owned surface.
     }
 
     O2ContextDrawLayerInRect(self, O2RectMake(0, 0, size.width, size.height),
                              layer);
+    state->_deviceSpaceTransform = savedDeviceTransform;
     O2LayerRelease(layer);
 }
 

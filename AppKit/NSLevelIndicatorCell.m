@@ -1,3 +1,4 @@
+#import "NSInterfacePart/OSXERBigSurGraphicsStyle.h" // OSXER BIGSUR R2 (level renderer)
 /* Copyright (c) 2006-2007 Christopher J. W. Lloyd
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -21,6 +22,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSRaise.h>
 
 @implementation NSLevelIndicatorCell
+
+// OSXER BIGSUR R2 (level initialization): gallery uses plain init; default is
+// discrete capacity, not the zero-valued rating enum. No previous draw method.
+- init { return [self initWithLevelIndicatorStyle: NSDiscreteCapacityLevelIndicatorStyle]; }
+
+- (void) drawWithFrame: (NSRect) frame inView: (NSView *) view {
+    _controlView = view;
+    if (OSXERBigSurEnabled() && _style == NSDiscreteCapacityLevelIndicatorStyle) {
+        [(OSXERBigSurGraphicsStyle *)[view graphicsStyle] drawLevelCell: self inRect: frame];
+        return;
+    }
+    [super drawWithFrame: frame inView: view];
+}
+
 
 - initWithLevelIndicatorStyle: (NSLevelIndicatorStyle) style {
     [super init];

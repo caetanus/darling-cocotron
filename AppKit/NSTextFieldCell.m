@@ -33,6 +33,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSStringDrawer.h>
 #import <AppKit/NSStringDrawing.h>
 #import <AppKit/NSTextFieldCell.h>
+#import <AppKit/NSTextField.h> // OSXER BIGSUR R2 (label baseline)
 #import <Foundation/NSKeyedArchiver.h>
 
 @implementation NSTextFieldCell
@@ -227,6 +228,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 // titleRectForBounds is not used for generating the value rect in a text field
 - (NSRect) _valueRectForBounds: (NSRect) rect {
+    // OSXER BIGSUR R2 (field text inset): reference Sample text ink
+    // x169/y204 vs field x164/y198; v1 x168/y201 vs x164/y194.
+    // Same Noto raster => move origin +1 x/-1 y (4x2 inset instead of 3x3).
+    if (OSXERBigSurEnabled()) {
+        if ([self isBezeled] || [self isBordered]) return NSInsetRect(rect, 4, 2);
+        // Labels: Placeholder ref y178 vs v1 y175 (4 px window-origin delta).
+        rect = NSInsetRect(rect, 2, 0);
+        if ([_controlView isKindOfClass: [NSTextField class]]) rect.origin.y -= 1;
+        return rect;
+    }
     if ([self isBezeled]) {
 
         switch ([self bezelStyle]) {
@@ -283,6 +294,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         if ([self isEnabled]) {
             if (_textColor != nil)
                 [attributes setObject: _textColor
+                               forKey: NSForegroundColorAttributeName];
+            // OSXER BIGSUR R2 (label ink): plain programmatic cells have no
+            // explicit textColor. Reference solid label/field pixels are #262626;
+            // leaving the attribute absent used the layout manager's black.
+            else if (OSXERBigSurEnabled())
+                [attributes setObject: [NSColor controlTextColor]
                                forKey: NSForegroundColorAttributeName];
         } else {
             [attributes setObject: [NSColor disabledControlTextColor]
@@ -364,8 +381,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
             NSMutableAttributedString *placeString =
                     [[drawValue mutableCopy] autorelease];
             [[placeString mutableString] setString: _placeholder];
+            // OSXER BIGSUR R2 (placeholder font): an empty attributed string
+            // has no attributes to copy. Reference hint uses 13 pt, #C0C0C0.
+            if (OSXERBigSurEnabled() && [self font])
+                [placeString addAttribute: NSFontAttributeName value: [self font]
+                                    range: NSMakeRange(0, [placeString length])];
             [placeString addAttribute: NSForegroundColorAttributeName
-                                value: [NSColor disabledControlTextColor]
+                                value: OSXERBigSurEnabled()
+                                    ? [NSColor colorWithCalibratedWhite: 192.0/255 alpha: 1]
+                                    : [NSColor disabledControlTextColor]
                                 range: NSMakeRange(0, [placeString length])];
             drawValue = placeString;
         }
