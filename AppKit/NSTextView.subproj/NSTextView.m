@@ -317,12 +317,16 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
     _isSelectable = YES;
     _isRichText = YES;
     _usesFontPanel = YES;
-    _backgroundColor = [[NSColor whiteColor] copy];
+    // OSXER BIGSUR DARK (editor defaults): keep semantic colours live when
+    // NSApp.appearance changes; explicit setBackgroundColor: still wins.
+    _backgroundColor = [(OSXERBigSurEnabled() ? [NSColor textBackgroundColor] : [NSColor whiteColor]) copy];
     _drawsBackground = YES;
     _font = [[NSFont userFontOfSize: 0] retain];
     _textColor = [[NSColor textColor] copy];
     _textAlignment = NSLeftTextAlignment;
-    _insertionPointColor = [[NSColor blackColor] copy];
+    _insertionPointColor = [(OSXERBigSurEnabled()
+            ? [NSColor colorWithCatalogName: @"System" colorName: @"insertionPoint"]
+            : [NSColor blackColor]) copy];
     _isFieldEditor = NO;
     _maxSize = [self bounds].size;
     _isHorizontallyResizable = NO;
@@ -3149,7 +3153,9 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
             hint = [[[NSAttributedString alloc] initWithString: [cell placeholderString]
                     attributes: [NSDictionary dictionaryWithObjectsAndKeys:
                         [self font], NSFontAttributeName,
-                        [NSColor colorWithCalibratedWhite: 192.0/255 alpha: 1],
+                        // OSXER BIGSUR DARK (editing hint): same semantic
+                        // placeholder as the cell (light measured #C0C0C0).
+                        [OSXERSystemPalette colorWithName: @"placeholderText"],
                         NSForegroundColorAttributeName, nil]] autorelease];
         }
         [hint drawAtPoint: origin];

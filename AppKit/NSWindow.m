@@ -19,6 +19,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import "NSInterfacePart/OSXERSystemPalette.h"
+#import "OSXERFocusDebug.h" // OSXER FOCUS (key/responder decisions)
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSColor.h>
 #import <AppKit/NSCursor.h>
@@ -1671,6 +1672,9 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (BOOL) makeFirstResponder: (NSResponder *) responder {
+    OSXERFocusLog("makeFirstResponder window=%p key=%d main=%d active=%d old=%p requested=%p\n",
+                  self, [self isKeyWindow], [self isMainWindow], [NSApp isActive],
+                  _firstResponder, responder);
     if (_firstResponder == responder) {
         return YES;
     }
@@ -1680,6 +1684,7 @@ static BOOL _allowsAutomaticWindowTabbing;
     }
 
     if (![_firstResponder resignFirstResponder]) {
+        OSXERFocusLog("makeFirstResponder window=%p refused resignation\n", self);
         return NO;
     }
 
@@ -1688,35 +1693,27 @@ static BOOL _allowsAutomaticWindowTabbing;
     if (OSXERBigSurEnabled()) [_backgroundView setNeedsDisplay: YES];
 
     if ([_firstResponder becomeFirstResponder]) {
+        OSXERFocusLog("makeFirstResponder window=%p accepted actual=%p\n", self, _firstResponder);
         return YES;
     } else {
         _firstResponder = self;
+        OSXERFocusLog("makeFirstResponder window=%p rejected; using window\n", self);
         return NO;
     }
 }
 
 - (void) makeKeyWindow {
+    // OSXER FOCUS (logical key window): makeKeyWindow must establish AppKit
+    // key status synchronously. X11 input focus can arrive later (or be denied
+    // by a compositor); it still controls application activation independently.
+    // Contract: developer.apple.com/documentation/appkit/nswindow/makekey()
+    if (![self canBecomeKeyWindow]) return;
+    OSXERFocusLog("makeKeyWindow request window=%p key=%d main=%d active=%d\n",
+                  self, [self isKeyWindow], [self isMainWindow], [NSApp isActive]);
     [[self platformWindow] makeKey];
-
-    if (_hasBeenOnScreen) {
-        return;
-    }
-    _hasBeenOnScreen = YES;
-
-    // Ref. http://www.cocoadev.com/index.pl?KeyViewLoopGuidelines
-    // If there is an initial first responder there is a manual key view loop
-    // and we don't calculate one
-    if ([self initialFirstResponder] != nil) {
-        [self makeFirstResponder: [self initialFirstResponder]];
-    } else {
-        // Otherwise calculate one and set the first responder.
-        if ([self autorecalculatesKeyViewLoop]) {
-            [self recalculateKeyViewLoop];
-        }
-        if ([self firstResponder] == self) {
-            [self makeFirstResponder: [_contentView nextValidKeyView]];
-        }
-    }
+    [self becomeKeyWindow];
+    OSXERFocusLog("makeKeyWindow complete window=%p key=%d main=%d active=%d responder=%p\n",
+                  self, [self isKeyWindow], [self isMainWindow], [NSApp isActive], _firstResponder);
 }
 
 - (void) makeMainWindow {
@@ -1724,13 +1721,27 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (void) becomeKeyWindow {
-    // The platform should always be told to become key when we want to become
-    // key.
-    [self makeKeyWindow];
+    // OSXER FOCUS (notification): backend activation also enters here. Do not
+    // issue another native focus request or notify twice when FocusIn arrives.
+    if ([self isKeyWindow]) return;
 
-    // If we don't return early we may resign ourselves.
-    if ([self isKeyWindow]) {
-        return;
+    if (!_hasBeenOnScreen) {
+        _hasBeenOnScreen = YES;
+
+        // Ref. http://www.cocoadev.com/index.pl?KeyViewLoopGuidelines
+        // If there is an initial first responder there is a manual key view loop
+        // and we don't calculate one
+        if ([self initialFirstResponder] != nil) {
+            [self makeFirstResponder: [self initialFirstResponder]];
+        } else {
+            // Otherwise calculate one and set the first responder.
+            if ([self autorecalculatesKeyViewLoop]) {
+                [self recalculateKeyViewLoop];
+            }
+            if ([self firstResponder] == self) {
+                [self makeFirstResponder: [_contentView nextValidKeyView]];
+            }
+        }
     }
 
     // Become key window before the previous key window resigns so that the new
@@ -1748,6 +1759,10 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (void) resignKeyWindow {
+    // OSXER FOCUS (resignation): a direct resignation must clear logical key
+    // status; switching windows has already installed the successor.
+    if ([NSApp keyWindow] == self) [NSApp _setKeyWindow: nil];
+    OSXERFocusLog("resignKeyWindow window=%p successor=%p\n", self, [NSApp keyWindow]);
     if (_firstResponder != self && [_firstResponder respondsToSelector: _cmd])
         [_firstResponder performSelector: _cmd];
 
@@ -2965,6 +2980,8 @@ static BOOL _allowsAutomaticWindowTabbing;
 - (void) platformWindowActivated: (CGWindow *) window
                  displayIfNeeded: (BOOL) displayIfNeeded
 {
+    OSXERFocusLog("platform activated window=%p key=%d main=%d active=%d\n",
+                  self, [self isKeyWindow], [self isMainWindow], [NSApp isActive]);
     [NSApp _windowWillBecomeActive: self];
 
     [self _setSheetOriginAndFront];
@@ -2994,6 +3011,8 @@ static BOOL _allowsAutomaticWindowTabbing;
 - (void) platformWindowDeactivated: (CGWindow *) window
            checkForAppDeactivation: (BOOL) checkForAppDeactivation
 {
+    OSXERFocusLog("platform deactivated window=%p key=%d main=%d active=%d\n",
+                  self, [self isKeyWindow], [self isMainWindow], [NSApp isActive]);
     [NSApp _windowWillBecomeDeactive: self];
 
     [_childWindows

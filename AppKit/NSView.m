@@ -21,6 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 // OSXER BIGSUR R2 (exterior field focus): parent owns the pixels outside bounds.
 #import "NSInterfacePart/OSXERBigSurGraphicsStyle.h"
+#import "OSXERFocusDebug.h" // OSXER FOCUS (parent overlay)
 #import <AppKit/NSTextField.h>
 #import <AppKit/NSTextFieldCell.h>
 #import <AppKit/NSApplication.h>
@@ -2518,10 +2519,15 @@ static NSView *viewBeingPrinted = nil;
                 NSTextFieldCell *cell = [(NSTextField *)field cell];
                 OSXERBigSurGraphicsStyle *style = (id)[field graphicsStyle];
                 if (([cell isBezeled] || [cell isBordered]) && [style cellHasFocus: cell]) {
+                    // OSXER FOCUS (parent overlay): log entry separately from
+                    // the cell's drawing path to diagnose clipping/invalidation.
+                    OSXERFocusLog("parent focus overlay parent=%p field=%p clip=%.1f,%.1f %.1fx%.1f\n",
+                                  self, field, rect.origin.x, rect.origin.y, rect.size.width, rect.size.height);
                     [self lockFocus];
                     NSRectClip(rect);
                     [style drawTextFieldFocusRingInRect: [self convertRect: [field bounds] fromView: field]
-                                                radius: [field isKindOfClass: NSClassFromString(@"NSSearchField")] ? 6 : 0];
+                                                radius: ([field isKindOfClass: NSClassFromString(@"NSSearchField")] ||
+                                                         [cell bezelStyle] == NSTextFieldRoundedBezel) ? 6 : 0];
                     [self unlockFocus];
                 }
             }

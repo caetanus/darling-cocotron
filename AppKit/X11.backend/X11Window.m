@@ -42,6 +42,7 @@
 #import "X11InputShape.h"
 #import "X11SubWindow.h"
 #import "X11Window.h"
+#import "OSXERFocusDebug.h" // OSXER FOCUS (native focus decisions)
 #import <X11/Xatom.h>
 #import <X11/Xutil.h>
 
@@ -984,12 +985,17 @@ BOOL X11WindowManagerIsRunning(Display *display) {
     Window focused;
     int revert;
     XGetInputFocus(_display, &focused, &revert);
+    // OSXER FOCUS (native request): diagnostics only; preserve upstream's
+    // EWMH/direct-focus choice, map retry and stale FocusIn protection.
+    OSXERFocusLog("X11 requestInputFocus window=%lu focused=%lu receiving=%d\n",
+                  _window, focused, _receivingFocus);
     if (focused == _window) {
         _wantsInputFocus = NO;
         return;
     }
 
     if (X11WindowManagerIsRunning(_display)) {
+        OSXERFocusLog("X11 requestInputFocus window=%lu path=EWMH\n", _window);
         XEvent event;
         memset(&event, 0, sizeof(event));
         event.xclient.type = ClientMessage;
@@ -1009,6 +1015,7 @@ BOOL X11WindowManagerIsRunning(Display *display) {
     XWindowAttributes attributes;
     if (XGetWindowAttributes(_display, _window, &attributes) &&
         attributes.map_state == IsViewable) {
+        OSXERFocusLog("X11 requestInputFocus window=%lu path=XSetInputFocus\n", _window);
         XSetInputFocus(_display, _window, RevertToPointerRoot, CurrentTime);
         // Send it now: an idle run loop may not flush Xlib's output buffer until the
         // next event, so key events typed meanwhile would still go to the old window.
@@ -1016,6 +1023,7 @@ BOOL X11WindowManagerIsRunning(Display *display) {
         _wantsInputFocus = NO;
     } else {
         // Not viewable yet (the map request is still pending): retry on MapNotify.
+        OSXERFocusLog("X11 requestInputFocus window=%lu path=wait-MapNotify\n", _window);
         _wantsInputFocus = YES;
     }
 }

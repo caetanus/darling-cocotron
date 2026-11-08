@@ -20,6 +20,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSAlert.h>
 #import <AppKit/NSAppearance.h>
 #import <AppKit/NSApplication.h>
+#import <AppKit/NSColor.h>
+#import "NSInterfacePart/OSXERSystemPalette.h" // OSXER BIGSUR DARK (application appearance)
 #import <AppKit/NSColorPanel.h>
 #import <AppKit/NSDisplay.h>
 #import <AppKit/NSDockTile.h>
@@ -292,23 +294,25 @@ NSApplication *NSApp = nil;
 }
 
 - (void) setAppearance: (NSAppearance *) appearance {
+    if (_appearance == appearance) return;
     appearance = [appearance retain];
     [_appearance release];
     _appearance = appearance;
+    // OSXER BIGSUR DARK (live changes): retained semantic colours resolve at
+    // drawing time; repaint frames and descendants without replacing explicit
+    // client colours. NSAppearance already provides real named objects here.
+    for (NSWindow *window in [self windows])
+        [[window _backgroundView] setNeedsDisplay: YES];
+    [[NSNotificationCenter defaultCenter]
+            postNotificationName: NSSystemColorsDidChangeNotification object: nil];
 }
 
-// Without an explicit appearance the application follows the system one,
-// which is always Aqua here.
+// OSXER BIGSUR DARK (fallback): preserve the explicit appearance, otherwise
+// read the testing override / user default. The default remains Aqua.
 - (NSAppearance *) effectiveAppearance {
-    static NSAppearance *systemAppearance;
-
     if (_appearance != nil)
         return _appearance;
-
-    if (systemAppearance == nil)
-        systemAppearance =
-                [[NSAppearance appearanceNamed: NSAppearanceNameAqua] retain];
-    return systemAppearance;
+    return OSXERPreferredAppearance();
 }
 
 - (NSWindow *) makeWindowsPerform: (SEL) selector inOrder: (BOOL) inOrder {

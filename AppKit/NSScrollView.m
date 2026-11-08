@@ -976,7 +976,8 @@ static Class _rulerViewClass = nil;
 
     // OSXER BIGSUR R2 (table frame): x16/y340 and x367/y509 = 1 px #E5E5E5.
     if (OSXERBigSurEnabled() && _borderType != NSNoBorder) {
-        [[NSColor colorWithCalibratedWhite: 229.0/255 alpha: 1] set];
+        // OSXER BIGSUR DARK (table frame): (16,460)=#353535; Light #E5 retained.
+        [[OSXERSystemPalette colorWithName: @"tableBorder"] set];
         NSFrameRectWithWidth(_bounds, 1);
         return;
     }

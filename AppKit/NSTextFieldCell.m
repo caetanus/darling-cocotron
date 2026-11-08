@@ -172,6 +172,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return _textColor;
 }
 
+// OSXER BIGSUR DARK (field editor): an unset cell colour means the semantic
+// default, not nil paint or stale ink from the previous field being edited.
+- (NSText *) setUpFieldEditorAttributes: (NSText *) editor {
+    editor = [super setUpFieldEditorAttributes: editor];
+    if (OSXERBigSurEnabled()) {
+        [editor setBackgroundColor: _backgroundColor ?: [NSColor textBackgroundColor]];
+        [editor setTextColor: _textColor ?: [NSColor textColor]];
+    }
+    return editor;
+}
+
 - (BOOL) drawsBackground {
     return _drawsBackground;
 }
@@ -299,7 +310,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
             // explicit textColor. Reference solid label/field pixels are #262626;
             // leaving the attribute absent used the layout manager's black.
             else if (OSXERBigSurEnabled())
-                [attributes setObject: [NSColor controlTextColor]
+                // OSXER BIGSUR DARK (ink): labels (69,47)=#DEDEDE;
+                // field/search/combo (207,210)=#E1E1E1. Light both #262626.
+                [attributes setObject: ([self isBezeled] || [self isBordered])
+                                    ? [NSColor textColor] : [NSColor controlTextColor]
                                forKey: NSForegroundColorAttributeName];
         } else {
             [attributes setObject: [NSColor disabledControlTextColor]
@@ -388,7 +402,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                                     range: NSMakeRange(0, [placeString length])];
             [placeString addAttribute: NSForegroundColorAttributeName
                                 value: OSXERBigSurEnabled()
-                                    ? [NSColor colorWithCalibratedWhite: 192.0/255 alpha: 1]
+                                    // OSXER BIGSUR DARK (placeholder): Light #C0C0C0;
+                                    // Dark (62,210)=#666666 in dark-window.png.
+                                    ? [OSXERSystemPalette colorWithName: @"placeholderText"]
                                     : [NSColor disabledControlTextColor]
                                 range: NSMakeRange(0, [placeString length])];
             drawValue = placeString;

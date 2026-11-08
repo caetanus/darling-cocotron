@@ -330,7 +330,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     // x16..743, exactly #DEDEDE. Adding the 28-24 title/menu delta gives
     // reference y308; keep this geometry and color, no second line needed.
     if (OSXERBigSurEnabled() && _boxType == NSBoxSeparator) {
-        [[NSColor colorWithCalibratedWhite: 222.0/255 alpha: 1] setFill];
+        // OSXER BIGSUR DARK (separator): light (20,308)=#DEDEDE; use the
+        // appearance pair instead of baking the light pixel into drawing.
+        [[OSXERSystemPalette colorWithName: @"separatorLine"] setFill];
         NSRect line = _bounds;
         if (NSWidth(line) >= NSHeight(line)) {
             line.origin.y = floor(NSMidY(line)); line.size.height = 1;

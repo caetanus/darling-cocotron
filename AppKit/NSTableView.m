@@ -1303,7 +1303,10 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
                                     tableSelectionTextColor: self]
                             : [NSColor selectedTextColor]];
         } else
-            [(NSTextFieldCell *) dataCell setTextColor: [NSColor textColor]];
+            // OSXER BIGSUR DARK (table ink): resolve against the row surface.
+            [(NSTextFieldCell *) dataCell setTextColor: OSXERBigSurEnabled()
+                    ? [(OSXERBigSurGraphicsStyle *)[self graphicsStyle] tableTextColor: self row: row]
+                    : [NSColor textColor]];
     }
 
     [column prepareCell: dataCell inRow: row];

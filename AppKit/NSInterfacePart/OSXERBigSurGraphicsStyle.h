@@ -22,10 +22,13 @@ NSSize OSXERBigSurButtonSize(NSButtonCell *cell);
 - (void) drawTableBackground: (NSTableView *) table clipRect: (NSRect) rect;
 - (void) drawTableSelection: (NSTableView *) table clipRect: (NSRect) rect;
 - (NSColor *) tableSelectionTextColor: (NSTableView *) table;
+- (NSColor *) tableTextColor: (NSTableView *) table row: (NSInteger) row;
 - (void) drawHeaderText: (NSAttributedString *) text inRect: (NSRect) rect;
 - (NSRect) tabRectAtIndex: (NSUInteger) index inTabView: (NSTabView *) tabView;
 - (void) drawTopTabView: (NSTabView *) tabView;
 - (void) drawFocusRingInRect: (NSRect) rect radius: (CGFloat) radius;
+// OSXER BIGSUR DARK (spinner): keep Light's existing drawing path.
+- (void) drawDarkSpinnerInRect: (NSRect) rect animation: (double) animation;
 - (void) drawMenuKeyEquivalent: (NSString *) text inRect: (NSRect) rect
                       enabled: (BOOL) enabled selected: (BOOL) selected;
 @end

@@ -49,7 +49,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         _calendar = [[NSCalendar alloc] initWithCalendarIdentifier: NSGregorianCalendar];
         OSXERGalleryDebug("datepicker Gregorian calendar end ready=%d\n", _calendar != nil);
         _backgroundColor = [[NSColor textBackgroundColor] retain];
-        _textColor = [[NSColor controlTextColor] retain];
+        // OSXER BIGSUR DARK (date ink): (251,551)=#DFDFDF in dark-window.png;
+        // keep the named colour so application appearance changes propagate.
+        _textColor = [(OSXERBigSurEnabled()
+                ? [NSColor colorWithCatalogName: @"System" colorName: @"dateText"]
+                : [NSColor controlTextColor]) retain];
         _elements = NSYearMonthDayDatePickerElementFlag;
         _style = NSTextFieldAndStepperDatePickerStyle;
         _drawsBackground = YES;

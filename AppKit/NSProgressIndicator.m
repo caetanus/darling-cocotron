@@ -26,6 +26,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSWindow.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <Foundation/NSKeyedArchiver.h>
+#import "NSInterfacePart/OSXERBigSurGraphicsStyle.h"
 
 @implementation NSProgressIndicator
 
@@ -121,6 +122,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) drawIndeterminateCircular {
+    // OSXER BIGSUR DARK (spinner): paint through the style, using the same
+    // phase/model as the existing progress indicator. Light is unchanged.
+    if (OSXERBigSurEnabled() && OSXERDarkAppearance()) {
+        [(OSXERBigSurGraphicsStyle *)[self graphicsStyle]
+                drawDarkSpinnerInRect: [self bounds] animation: _animationValue];
+        return;
+    }
     CGContextRef context = [[NSGraphicsContext currentContext] graphicsPort];
     int i, numberOfRays = 12;
     int offset = roundf(_animationValue * (numberOfRays - 1));

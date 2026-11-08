@@ -325,6 +325,9 @@ NSNotificationName const NSSystemColorsDidChangeNotification = @"NSSystemColorsD
 // The user's accent colour. There is no accent setting to follow here, so it
 // is the default one, the system blue (sRGB 0, 122, 255).
 + (NSColor *) controlAccentColor {
+    // OSXER BIGSUR DARK (accent): retain the semantic identity across changes.
+    if (OSXERBigSurEnabled())
+        return [self colorWithCatalogName: @"System" colorName: @"controlAccentColor"];
     return [NSColor colorWithSRGBRed: 0.0
                                green: 122.0 / 255.0
                                 blue: 1.0

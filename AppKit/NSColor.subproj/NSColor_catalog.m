@@ -119,14 +119,23 @@ NSColor *NSColorGetCatalogColor(NSColorListName catalogName,
 }
 
 - (NSImage *) patternImage {
-    return [_color patternImage];
+    return [[self _osxerResolvedColor] patternImage];
+}
+
+// OSXER BIGSUR DARK (retained semantic colours): windows, cells, editors and
+// attributed strings retain these objects. Resolve on use, not just creation,
+// so switching NSApp.appearance also updates controls already on screen.
+// Explicit RGB colours and unknown/non-System catalog entries keep _color.
+- (NSColor *) _osxerResolvedColor {
+    if ([_catalogName isEqualToString: @"System"] && OSXERBigSurEnabled()) {
+        NSColor *resolved = [OSXERSystemPalette colorWithName: _colorName];
+        if (resolved != nil) return resolved;
+    }
+    return _color;
 }
 
 - (CGColorRef) CGColor {
-    if (_color != nil)
-        return [_color CGColor];
-
-    return nil;
+    return [[self _osxerResolvedColor] CGColor];
 }
 
 - (NSColor *) colorUsingColorSpaceName: (NSColorSpaceName) colorSpace {
@@ -142,7 +151,7 @@ NSColor *NSColorGetCatalogColor(NSColorListName catalogName,
     // Return the converted color without replacing _color: the result is
     // autoreleased, so storing it would leave this color with a dangling
     // backing color once the pool drains.
-    return [_color colorUsingColorSpaceName: colorSpace device: device];
+    return [[self _osxerResolvedColor] colorUsingColorSpaceName: colorSpace device: device];
 }
 
 - (CGColorRef) CGColorRef {
@@ -150,11 +159,16 @@ NSColor *NSColorGetCatalogColor(NSColorListName catalogName,
 }
 
 - (void) setFill {
-    [_color setFill];
+    [[self _osxerResolvedColor] setFill];
 }
 
 - (void) setStroke {
-    [_color setStroke];
+    [[self _osxerResolvedColor] setStroke];
+}
+
+// OSXER BIGSUR DARK (opacity): semantic labels/separators have alpha too.
+- (CGFloat) alphaComponent {
+    return [[self _osxerResolvedColor] alphaComponent];
 }
 
 - (NSColor *) highlightWithLevel: (CGFloat) level {
