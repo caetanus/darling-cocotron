@@ -17,6 +17,8 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
+// OSXER: private Big Sur style hooks.
+#import "NSInterfacePart/OSXERBigSurGraphicsStyle.h"
 #import <AppKit/NSButtonCell.h>
 #import <AppKit/NSControl.h>
 #import <AppKit/NSImage.h>
@@ -138,6 +140,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (NSRect) searchButtonRectForBounds: (NSRect) rect {
+    if (OSXERBigSurEnabled())
+        return NSMakeRect(NSMinX(rect) + 5, NSMidY(rect) - 7, 14, 14);
     NSRect result = [self titleRectForBounds: rect];
 
     result.size.width = result.size.height;
@@ -147,6 +151,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (NSRect) cancelButtonRectForBounds: (NSRect) rect {
+    if (OSXERBigSurEnabled())
+        return NSMakeRect(NSMaxX(rect) - 19, NSMidY(rect) - 7, 14, 14);
     NSRect result = [self titleRectForBounds: rect];
 
     result.origin.x += result.size.width;
@@ -164,6 +170,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (NSRect) titleRectForBounds: (NSRect) rect {
+    // OSXER: reserve the same glyph space for drawing, editing and hit testing.
+    if (OSXERBigSurEnabled()) return NSInsetRect(rect, 23, 3);
     CGFloat radius = rect.size.height / 2;
     NSRect result = [super titleRectForBounds: rect];
 
@@ -196,6 +204,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (void) drawWithFrame: (NSRect) frame inView: (NSView *) control {
     [super drawWithFrame: frame inView: control];
+
+    // OSXER: replace the stock image glyphs with paths.
+    if (OSXERBigSurEnabled()) {
+        [(OSXERBigSurGraphicsStyle *) [control graphicsStyle]
+                drawSearchGlyphsInRect: [self searchButtonRectForBounds: frame]
+                            cancelRect: [self cancelButtonRectForBounds: frame]
+                               enabled: [self isEnabled]
+                           showsCancel: [[self stringValue] length] > 0];
+        return;
+    }
 
     [_searchButtonCell drawWithFrame: [self searchButtonRectForBounds: frame]
                               inView: control];

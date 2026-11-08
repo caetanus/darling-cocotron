@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <dispatch/dispatch.h>
 #import FT_TRUETYPE_TABLES_H
+#import <Onyx2D/O2Fontconfig.h> // OSXER FIX (scalable fonts)
 
 @implementation O2Font_freetype
 
@@ -177,48 +178,34 @@ out:
     return result;
 }
 
-/* fontconfig ranks bitmap faces (the X11 .pcf fonts) above outline fonts for some generic
- * families, and a bitmap face has units_per_EM == 0, so every metric derived from it divides
- * by zero. Return the first scalable face of the sorted set, or the first face if none is. */
-static NSString *filenameOfFirstScalableFace(FcFontSet *set) {
-    NSString *fallback = nil;
-    for (int i = 0; i < set->nfont; i++) {
-        FcChar8 *filename = NULL;
-        if (FcPatternGetString(set->fonts[i], FC_FILE, 0, &filename) != FcResultMatch) {
-            continue;
-        }
-        NSString *path = [NSString stringWithUTF8String: (char *) filename];
-        if (path == nil) {
-            continue;
-        }
-        FcBool scalable = FcTrue; /* left untouched when the pattern has no FC_SCALABLE */
-        FcPatternGetBool(set->fonts[i], FC_SCALABLE, 0, &scalable);
-        if (scalable) {
-            return path;
-        }
-        if (fallback == nil) {
-            fallback = path;
-        }
-    }
-    return fallback;
-}
-
-+ (NSString *) filenameForPattern: (NSString *) pattern {
+// OSXER FIX (scalable fonts): preserve FC_INDEX for font collections as well as
+// FC_FILE. A filename alone silently loads face zero, potentially a different face.
++ (FcPattern *) copyScalablePattern: (NSString *) pattern {
     FcConfig *config = O2FontSharedFontConfig();
 
     FcPattern *pat = FcNameParse((unsigned char *) [pattern UTF8String]);
+    if (pat == NULL)
+        return NULL;
     FcConfigSubstitute(config, pat, FcMatchPattern);
     FcDefaultSubstitute(pat);
 
-    FcResult fcResult;
-    FcFontSet *set = FcFontSort(config, pat, FcFalse, NULL, &fcResult);
+    FcPattern *match = O2FontconfigMatchScalable(config, pat);
+    O2FontconfigDebugMatch("selected", pat, match);
     FcPatternDestroy(pat);
-    if (set == NULL) {
+    return match;
+}
+
++ (NSString *) filenameForPattern: (NSString *) pattern {
+    FcPattern *match = [self copyScalablePattern: pattern];
+    if (match == NULL) {
         return nil;
     }
 
-    NSString *res = filenameOfFirstScalableFace(set);
-    FcFontSetDestroy(set);
+    FcChar8 *filename = NULL;
+    NSString *res = nil;
+    if (FcPatternGetString(match, FC_FILE, 0, &filename) == FcResultMatch)
+        res = [NSString stringWithUTF8String: (const char *)filename];
+    FcPatternDestroy(match);
     return res;
 }
 
@@ -246,20 +233,30 @@ static NSString *filenameOfFirstScalableFace(FcFontSet *set) {
 
 - (instancetype) initWithFontName: (NSString *) name {
     self = [super initWithFontName: name];
+    if (self == nil)
+        return nil;
 
-    NSString *filename = [[self class] filenameForPattern: name];
-    if (filename == nil) {
-        filename = [[self class] filenameForPattern: @""];
+    // OSXER FIX (scalable fonts): resolve a scalable outline face, not an
+    // arbitrary fontconfig winner whose zero units_per_EM breaks text metrics.
+    FcPattern *match = [[self class] copyScalablePattern: name];
+    if (match == NULL) {
+        match = [[self class] copyScalablePattern: @""];
     }
-    if (filename == nil) {
+    if (match == NULL) {
         NSLog(@"No font found for name %@", name);
         [self release];
         return nil;
     }
 
-    FT_Face face;
-    FT_Error error = FT_New_Face(O2FontSharedFreeTypeLibrary(),
-                                 [filename fileSystemRepresentation], 0, &face);
+    FcChar8 *filename = NULL;
+    int faceIndex = 0;
+    FcPatternGetString(match, FC_FILE, 0, &filename);
+    FcPatternGetInteger(match, FC_INDEX, 0, &faceIndex);
+    FT_Face face = NULL;
+    FT_Error error = filename == NULL ? 1 :
+            FT_New_Face(O2FontSharedFreeTypeLibrary(), (const char *)filename,
+                        faceIndex, &face);
+    FcPatternDestroy(match);
 
     if (error != 0) {
         NSLog(@"FT_New_Face() = %d", error);
@@ -273,6 +270,16 @@ static NSString *filenameOfFirstScalableFace(FcFontSet *set) {
 - (instancetype) initWithFace: (FT_Face) face {
     _face = face;
     _platformType = O2FontPlatformTypeFreeType;
+
+    // OSXER FIX (scalable fonts): validate the actual FreeType face too, including
+    // provider fonts which bypass fontconfig. Never publish zero-em metrics.
+    OSXERGalleryDebug("font FreeType family=%s style=%s scalable=%d unitsPerEm=%u\n",
+                      face->family_name ?: "?", face->style_name ?: "?",
+                      !!FT_IS_SCALABLE(face), face->units_per_EM);
+    if (!FT_IS_SCALABLE(face) || face->units_per_EM == 0) {
+        [self release];
+        return nil;
+    }
 
     int i, numberOfCharMaps = face->num_charmaps;
     BOOL hasUnicode = FALSE;
@@ -299,14 +306,7 @@ static NSString *filenameOfFirstScalableFace(FcFontSet *set) {
         NSLog(@"FT_Select_Charmap(%d) failed", _ftEncoding);
     }
 
-    if (!(face->face_flags & FT_FACE_FLAG_SCALABLE)) {
-        NSLog(@"FreeType font face %s is not scalable",
-              face->family_name != NULL ? face->family_name : "(unknown)");
-    }
-
-    // Bitmap-only faces have no design units; keep derived metrics finite.
-    _unitsPerEm = face->units_per_EM != 0 ? (O2Float) face->units_per_EM
-                                          : 1000.0f;
+    _unitsPerEm = (O2Float) face->units_per_EM;
     _ascent = face->ascender;
     _descent = face->descender;
     _leading = 0;

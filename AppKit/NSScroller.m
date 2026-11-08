@@ -16,6 +16,8 @@ FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
+// OSXER: private Big Sur style hooks.
+#import "NSInterfacePart/OSXERBigSurGraphicsStyle.h"
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSColor.h>
 #import <AppKit/NSDisplay.h>
@@ -26,12 +28,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSScroller.h>
 #import <AppKit/NSWindow.h>
+#import <AppKit/NSTrackingArea.h>
 #import <Foundation/NSKeyedArchiver.h>
 #import <Foundation/NSUserDefaults.h>
 
 @implementation NSScroller
 
 + (CGFloat) scrollerWidth {
+    // OSXER: legacy layout with the narrow, arrowless Big Sur appearance.
+    if (OSXERBigSurEnabled()) return 11;
     return [[NSDisplay currentDisplay] scrollerWidth];
 }
 
@@ -267,7 +272,7 @@ static inline CGFloat roundFloat(CGFloat value) {
     NSRect result = NSZeroRect;
 
     if ([self isVertical]) {
-        if (_arrowsPosition == NSScrollerArrowsNone) {
+        if (OSXERBigSurEnabled() || _arrowsPosition == NSScrollerArrowsNone) {
             decLine = NSZeroRect;
             incLine = NSZeroRect;
         } else {
@@ -306,7 +311,7 @@ static inline CGFloat roundFloat(CGFloat value) {
         if (floor(knob.size.height) >= floor(knobSlot.size.height))
             knob = NSZeroRect;
     } else {
-        if (_arrowsPosition == NSScrollerArrowsNone) {
+        if (OSXERBigSurEnabled() || _arrowsPosition == NSScrollerArrowsNone) {
             decLine = NSZeroRect;
             incLine = NSZeroRect;
         } else {
@@ -381,6 +386,33 @@ static inline CGFloat roundFloat(CGFloat value) {
     }
 }
 
+// OSXER: hover only changes the narrow knob's ink, not scroller geometry.
+- (void) updateTrackingAreas {
+    [super updateTrackingAreas];
+    for (NSTrackingArea *area in [[[self trackingAreas] copy] autorelease]) {
+        if ([area owner] == self && [[area userInfo] objectForKey: @"OSXERScroller"])
+            [self removeTrackingArea: area];
+    }
+    if (OSXERBigSurEnabled()) {
+        NSTrackingArea *area = [[[NSTrackingArea alloc]
+                initWithRect: [self bounds]
+                     options: NSTrackingMouseEnteredAndExited | NSTrackingActiveAlways | NSTrackingInVisibleRect
+                       owner: self
+                    userInfo: [NSDictionary dictionaryWithObject: @YES forKey: @"OSXERScroller"]] autorelease];
+        [self addTrackingArea: area];
+    }
+}
+
+- (void) mouseEntered: (NSEvent *) event {
+    if (OSXERBigSurEnabled()) [self highlight: YES];
+    else [super mouseEntered: event];
+}
+
+- (void) mouseExited: (NSEvent *) event {
+    if (OSXERBigSurEnabled()) [self highlight: NO];
+    else [super mouseExited: event];
+}
+
 - (void) drawKnobSlotInRect: (NSRect) rect highlight: (BOOL) flag {
 }
 
@@ -390,11 +422,18 @@ static inline CGFloat roundFloat(CGFloat value) {
 
 - (void) drawKnob {
     NSRect knob = [self rectForPart: NSScrollerKnob];
+    BOOL highlighted = _isHighlighted;
+    if (OSXERBigSurEnabled()) {
+        // A drag can clear _isHighlighted while the pointer remains inside.
+        for (NSTrackingArea *area in [self trackingAreas])
+            if ([area owner] == self && [[area userInfo] objectForKey: @"OSXERScroller"])
+                highlighted |= [area _mouseInside];
+    }
 
     if (!NSIsEmptyRect(knob))
         [[self graphicsStyle] drawScrollerKnobInRect: knob
                                             vertical: [self isVertical]
-                                           highlight: _isHighlighted];
+                                           highlight: highlighted];
 }
 
 - (void) drawArrow: (NSScrollerArrow) arrow highlight: (BOOL) highlight {
@@ -411,6 +450,13 @@ static inline CGFloat roundFloat(CGFloat value) {
 }
 
 - (void) drawRect: (NSRect) rect {
+    // OSXER: paint beneath the knob too, so dragging leaves no stale pixels.
+    if (OSXERBigSurEnabled()) {
+        [[self graphicsStyle] drawScrollerTrackInRect: [self bounds]
+                                            vertical: [self isVertical]];
+        [self drawKnob];
+        return;
+    }
     NSRect decPage = [self rectForPart: NSScrollerDecrementPage];
     NSRect incPage = [self rectForPart: NSScrollerIncrementPage];
     NSRect slot = [self rectForPart: NSScrollerKnobSlot];

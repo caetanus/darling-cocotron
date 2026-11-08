@@ -22,6 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSComboBox.h>
 #import <AppKit/NSComboBoxCell.h>
 #import <AppKit/NSTextView.h>
+#import <Onyx2D/OSXERGalleryDebug.h> // OSXER FIX (combo diagnostics)
 
 NSString *const NSComboBoxSelectionDidChangeNotification =
         @"NSComboBoxSelectionDidChangeNotification";
@@ -33,6 +34,26 @@ NSString *const NSComboBoxWillPopUpNotification =
         @"NSComboBoxWillPopUpNotification";
 
 @implementation NSComboBox
+
+// OSXER FIX (combo initialization): NSTextField's default cell cannot accept
+// addItemsWithObjectValues:.
++ (Class) cellClass {
+    return [NSComboBoxCell class];
+}
+
+- initWithFrame: (NSRect) frame {
+    OSXERGalleryDebug("combo init begin\n");
+    self = [super initWithFrame: frame];
+    OSXERGalleryDebug("combo init end cell=%s\n",
+                      object_getClassName([self cell]));
+    return self;
+}
+
+- (void) setStringValue: (NSString *) value {
+    OSXERGalleryDebug("combo setStringValue begin\n");
+    [super setStringValue: value];
+    OSXERGalleryDebug("combo setStringValue end\n");
+}
 
 - dataSource {
     return [[self cell] dataSource];
@@ -126,7 +147,11 @@ NSString *const NSComboBoxWillPopUpNotification =
 }
 
 - (void) addItemsWithObjectValues: (NSArray *) objects {
+    // OSXER FIX (combo diagnostics): bracket the old unrecognized-selector path.
+    OSXERGalleryDebug("combo addItems begin cell=%s count=%lu\n",
+                      object_getClassName([self cell]), (unsigned long)[objects count]);
     [[self cell] addItemsWithObjectValues: objects];
+    OSXERGalleryDebug("combo addItems end count=%ld\n", (long)[self numberOfItems]);
 }
 
 - (void) removeAllItems {

@@ -23,8 +23,30 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSGraphicsStyle.h>
 #import <AppKit/NSRaise.h>
 #import <Foundation/NSKeyedArchiver.h>
+#import <Onyx2D/OSXERGalleryDebug.h> // OSXER FIX (combo diagnostics)
 
 @implementation NSComboBoxCell
+
+// OSXER FIX (combo initialization): inherited -init dispatches to initTextCell:;
+// previously only nib decoding initialized the mutable items and button state.
+- initTextCell: (NSString *) string {
+    OSXERGalleryDebug("combo cell init begin\n");
+    self = [super initTextCell: string];
+    if (self == nil)
+        return nil;
+    _objectValues = [[NSMutableArray alloc] init];
+    _numberOfVisibleItems = 5;
+    _itemHeight = 16;
+    _intercellSpacing = NSMakeSize(3, 2);
+    _hasVerticalScroller = YES;
+    _isButtonBordered = YES;
+    _buttonEnabled = NO;
+    [self setEditable: YES];
+    [self setSelectable: YES];
+    [self setBezeled: YES];
+    OSXERGalleryDebug("combo cell init end\n");
+    return self;
+}
 
 - (void) encodeWithCoder: (NSCoder *) coder {
     NSUnimplementedMethod();
@@ -65,7 +87,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - copyWithZone: (NSZone *) zone {
     NSComboBoxCell *copy = [super copyWithZone: zone];
 
-    copy->_objectValues = [_objectValues copy];
+    // OSXER FIX (combo initialization): copies must still support item mutation.
+    copy->_objectValues = [_objectValues mutableCopy];
 
     return copy;
 }

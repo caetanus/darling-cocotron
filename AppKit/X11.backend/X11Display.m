@@ -18,6 +18,7 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE. */
 
+#import "NSInterfacePart/OSXERSystemPalette.h"
 #import "X11Display.h"
 #import "NSEvent_mouse.h"
 #import "X11Cursor.h"
@@ -41,6 +42,7 @@
 #import <AppKit/NSWindow.h>
 
 #import <Onyx2D/O2Font_freetype.h>
+#import <Onyx2D/O2Fontconfig.h> // OSXER FIX (scalable fonts)
 
 #import <OpenGL/CGLInternal.h>
 
@@ -691,6 +693,12 @@ static NSDictionary *modeInfoToDictionary(const XRRModeInfo *mi, int depth) {
 }
 
 - (NSColor *) colorWithName: (NSString *) colorName {
+    // OSXER: the same paired palette is also resolved in NSColor_catalog so an
+    // AppKit-only upgrade works with an already installed X11 backend.
+    if (OSXERBigSurEnabled()) {
+        NSColor *color = [OSXERSystemPalette colorWithName: colorName];
+        if (color != nil) return color;
+    }
     if ([colorName isEqual: @"controlColor"])
         return [NSColor colorWithCalibratedWhite: 0.93 alpha: 1.0];
     if ([colorName isEqual: @"disabledControlTextColor"])
@@ -944,6 +952,9 @@ static NSDictionary *modeInfoToDictionary(const XRRModeInfo *mi, int depth) {
 
 - (NSSet *) allFontFamilyNames {
     FcPattern *pat = FcPatternCreate();
+    // OSXER FIX (scalable fonts): don't advertise faces Onyx2D cannot render.
+    FcPatternAddBool(pat, FC_SCALABLE, FcTrue);
+    FcPatternAddBool(pat, FC_OUTLINE, FcTrue);
     FcObjectSet *props = FcObjectSetBuild(FC_FAMILY, NULL);
 
     FcFontSet *set = FcFontList(O2FontSharedFontConfig(), pat, props);
@@ -971,8 +982,8 @@ static NSDictionary *modeInfoToDictionary(const XRRModeInfo *mi, int depth) {
     FcConfigSubstitute(config, pat, FcMatchPattern);
     FcDefaultSubstitute(pat);
 
-    FcResult fcResult;
-    FcPattern *match = FcFontMatch(config, pat, &fcResult);
+    // OSXER FIX (scalable fonts): family substitution must agree with Onyx2D.
+    FcPattern *match = O2FontconfigMatchScalable(config, pat);
     FcPatternDestroy(pat);
     if (match == NULL)
         return NULL;
@@ -999,6 +1010,9 @@ static NSDictionary *modeInfoToDictionary(const XRRModeInfo *mi, int depth) {
     FcPattern *pat = FcPatternCreate();
     FcPatternAddString(pat, FC_FAMILY,
                        (unsigned char *) [familyName UTF8String]);
+    // OSXER FIX (scalable fonts): filter typefaces, not just family names.
+    FcPatternAddBool(pat, FC_SCALABLE, FcTrue);
+    FcPatternAddBool(pat, FC_OUTLINE, FcTrue);
     FcObjectSet *props = FcObjectSetBuild(FC_FAMILY, FC_STYLE, FC_SLANT,
                                           FC_WIDTH, FC_WEIGHT, NULL);
 

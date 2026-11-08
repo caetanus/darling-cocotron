@@ -17,6 +17,8 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
+// OSXER: private Big Sur style hooks.
+#import "NSInterfacePart/OSXERBigSurGraphicsStyle.h"
 #import "NSCoder+AppKit.h"
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSAttributedString.h>
@@ -390,6 +392,13 @@ static void drawRoundedBezel(CGContextRef context, CGRect frame) {
     NSRect backRect = [self drawingRectForBounds: frame];
 
     _controlView = control;
+
+    // OSXER: square and rounded fields share the style's bezel/focus geometry.
+    if (OSXERBigSurEnabled()) {
+        [(OSXERBigSurGraphicsStyle *) [control graphicsStyle]
+                drawTextFieldCell: self inRect: frame];
+        return;
+    }
 
     if ([self isBezeled]) {
         switch ([self bezelStyle]) {

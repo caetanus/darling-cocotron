@@ -324,6 +324,8 @@ set(AppKit_sources
 	NSInterfacePart/NSInterfacePartAttributedString.m
 	NSInterfacePart/NSInterfacePartDisabledAttributedString.m
 	NSInterfacePart/NSGraphicsStyle.m
+	NSInterfacePart/OSXERBigSurGraphicsStyle.m
+	NSInterfacePart/OSXERSystemPalette.m
 	NSInterfacePart/NSInterfacePart.m
 
 	NSImageView.m

@@ -17,6 +17,7 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
+#import "NSInterfacePart/OSXERSystemPalette.h"
 #import <AppKit/NSFont.h>
 #import <AppKit/NSFontDescriptor.h>
 #import <AppKit/NSFontFamily.h>
@@ -193,15 +194,16 @@ static NSLock *_cacheLock = nil;
 }
 
 + (CGFloat) systemFontSize {
-    return 12.0;
+    // OSXER: keep Classic metrics when requested.
+    return OSXERBigSurEnabled() ? 13.0 : 12.0;
 }
 
 + (CGFloat) smallSystemFontSize {
-    return 10.0;
+    return OSXERBigSurEnabled() ? 11.0 : 10.0;
 }
 
 + (CGFloat) labelFontSize {
-    return 12.0;
+    return [self systemFontSize];
 }
 
 + (CGFloat) systemFontSizeForControlSize: (NSControlSize) size {
@@ -250,37 +252,37 @@ static NSLock *_cacheLock = nil;
 
 + (NSFont *) controlContentFontOfSize: (CGFloat) size {
     return [self _uiFontOfType: kCTFontControlContentFontType
-                          size: (size == 0) ? 12.0 : size
+                          size: (size == 0) ? [self systemFontSize] : size
                   fallbackName: @"San Francisco"];
 }
 
 + (NSFont *) labelFontOfSize: (CGFloat) size {
     return [self _uiFontOfType: kCTFontLabelFontType
-                          size: (size == 0) ? 12.0 : size
+                          size: (size == 0) ? [self systemFontSize] : size
                   fallbackName: @"San Francisco"];
 }
 
 + (NSFont *) menuFontOfSize: (CGFloat) size {
     return [self _uiFontOfType: kCTFontMenuItemFontType
-                          size: size
+                          size: (size == 0 && OSXERBigSurEnabled()) ? 13 : size
                   fallbackName: @"San Francisco"];
 }
 
 + (NSFont *) menuBarFontOfSize: (CGFloat) size {
     return [self _uiFontOfType: kCTFontMenuTitleFontType
-                          size: size
+                          size: (size == 0 && OSXERBigSurEnabled()) ? 13 : size
                   fallbackName: @"San Francisco"];
 }
 
 + (NSFont *) messageFontOfSize: (CGFloat) size {
     return [self _uiFontOfType: kCTFontSystemFontType
-                          size: (size == 0) ? 12.0 : size
+                          size: (size == 0) ? [self systemFontSize] : size
                   fallbackName: @"San Francisco"];
 }
 
 + (NSFont *) paletteFontOfSize: (CGFloat) size {
     return [self _uiFontOfType: kCTFontPaletteFontType
-                          size: (size == 0) ? 12.0 : size
+                          size: (size == 0) ? [self systemFontSize] : size
                   fallbackName: @"San Francisco"];
 }
 
@@ -328,7 +330,7 @@ static NSLock *_cacheLock = nil;
 + (NSFont *) userFontOfSize: (CGFloat) size {
     return [NSFont fontWithName: [O2Font postscriptNameForDisplayName:
                                                  @"San Francisco"]
-                           size: (size == 0) ? 12.0 : size];
+                           size: (size == 0) ? [self systemFontSize] : size];
 }
 
 + (NSFont *) userFixedPitchFontOfSize: (CGFloat) size {

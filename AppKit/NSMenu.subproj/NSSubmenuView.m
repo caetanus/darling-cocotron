@@ -18,6 +18,8 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 // Original - Christopher Lloyd <cjwl@objc.net>
+// OSXER: private Big Sur style hooks.
+#import "NSInterfacePart/OSXERBigSurGraphicsStyle.h"
 #import <AppKit/NSGraphicsStyle.h>
 #import <AppKit/NSMenuWindow.h>
 #import <AppKit/NSSubmenuView.h>
@@ -273,6 +275,12 @@ static NSRect boundsToTitleAreaRect(NSRect rect) {
                                     branchArrowSize.width -
                                     keyEquivalentSize.width;
                 CENTER_PART_RECT_VERTICALLY(keyEquivalentSize);
+                // OSXER: preserve the right-aligned key column, use secondary ink.
+                if (OSXERBigSurEnabled())
+                    [(OSXERBigSurGraphicsStyle *) [self graphicsStyle]
+                            drawMenuKeyEquivalent: keyString inRect: partRect
+                                          enabled: showsEnabled selected: selected];
+                else
                 [[self graphicsStyle] drawMenuItemText: keyString
                                                 inRect: partRect
                                                enabled: showsEnabled

@@ -17,6 +17,7 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import "NSInterfaceGraphics.h"
+#import "OSXERBigSurGraphicsStyle.h"
 #import <AppKit/NSBezierPath.h>
 #import <AppKit/NSColor.h>
 #import <AppKit/NSFont.h>
@@ -938,7 +939,10 @@ static NSDictionary *sScrollerButtonAttributes = nil;
 @implementation NSView (NSGraphicsStyle)
 
 - (NSGraphicsStyle *) graphicsStyle {
-    return [[[NSGraphicsStyle alloc] initWithView: self] autorelease];
+    // OSXER: keep the original renderer available through the Classic default.
+    Class style = OSXERBigSurEnabled() ? [OSXERBigSurGraphicsStyle class]
+                                       : [NSGraphicsStyle class];
+    return [[[style alloc] initWithView: self] autorelease];
 }
 
 @end

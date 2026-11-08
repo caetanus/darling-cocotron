@@ -18,6 +18,8 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
+// OSXER: private Big Sur style hooks.
+#import "NSInterfacePart/OSXERBigSurGraphicsStyle.h"
 #import "NSKeyValueBinding/NSKVOBinder.h"
 #import "NSKeyValueBinding/NSMultipleValueBinder.h"
 #import <AppKit/AppKit.h>
@@ -152,7 +154,8 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
     [super initWithFrame: frame];
     _rowHeightsCount = 0;
     _rowHeights = NULL;
-    _standardRowHeight = NSTableViewDefaultRowHeight;
+    // OSXER: only defaults change; explicit/nib row heights remain respected.
+    _standardRowHeight = OSXERBigSurEnabled() ? 17 : NSTableViewDefaultRowHeight;
     _intercellSpacing = NSMakeSize(3.0, 2.0);
     _selectedRowIndexes = [[NSIndexSet alloc] init];
     _selectedColumns = [[NSMutableArray alloc] init];
@@ -179,6 +182,11 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
     _cornerView = [[NSTableCornerView alloc]
             initWithFrame: NSMakeRect(0, 0, _standardRowHeight,
                                       _standardRowHeight)];
+
+    if (OSXERBigSurEnabled()) {
+        [_headerView setFrameSize: NSMakeSize(NSWidth(frame), 22)];
+        [_cornerView setFrameSize: NSMakeSize(_standardRowHeight, 22)];
+    }
 
     _tableColumns = [[NSMutableArray alloc] init];
     _backgroundColor = [[NSColor controlBackgroundColor] retain];
@@ -1239,6 +1247,12 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
 }
 
 - (void) highlightSelectionInClipRect: (NSRect) rect {
+    // OSXER: row selection covers spacing and the full visible width.
+    if (OSXERBigSurEnabled()) {
+        [(OSXERBigSurGraphicsStyle *) [self graphicsStyle]
+                drawTableSelection: self clipRect: rect];
+        return;
+    }
     NSInteger row, column;
     NSInteger numberOfRows = [self numberOfRows];
 
@@ -1275,7 +1289,10 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
                                              // dont just set the color so
                                              // custom background works
             [(NSTextFieldCell *) dataCell
-                    setTextColor: [NSColor selectedTextColor]];
+                    setTextColor: OSXERBigSurEnabled()
+                            ? [(OSXERBigSurGraphicsStyle *) [self graphicsStyle]
+                                    tableSelectionTextColor: self]
+                            : [NSColor selectedTextColor]];
         } else
             [(NSTextFieldCell *) dataCell setTextColor: [NSColor textColor]];
     }
@@ -1366,6 +1383,12 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
 }
 
 - (void) drawBackgroundInClipRect: (NSRect) clipRect {
+    // OSXER: palette stripes, including the exposed area after the last row.
+    if (OSXERBigSurEnabled()) {
+        [(OSXERBigSurGraphicsStyle *) [self graphicsStyle]
+                drawTableBackground: self clipRect: clipRect];
+        return;
+    }
     NSArray *rowColors = [NSColor controlAlternatingRowBackgroundColors];
     NSInteger colorCount = [rowColors count];
 

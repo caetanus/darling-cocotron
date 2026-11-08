@@ -31,6 +31,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSRaise.h>
 #import <Foundation/NSKeyValueObserving.h>
 #import <Foundation/NSKeyedArchiver.h>
+#import <Onyx2D/OSXERGalleryDebug.h> // OSXER FIX (color well diagnostics)
 
 @implementation NSColorWell
 
@@ -74,17 +75,19 @@ NSNotificationName _NSColorWellDidBecomeExclusiveNotification =
 }
 
 - (instancetype) initWithFrame: (NSRect) frame {
-    [super initWithFrame: frame];
+    // OSXER FIX (lazy color panel): constructing a well must not load the panel
+    // nib (which itself contains a well). Observe panel close only while active.
+    OSXERGalleryDebug("colorwell init begin\n");
+    self = [super initWithFrame: frame];
+    if (self == nil)
+        return nil;
+    OSXERGalleryDebug("colorwell super init end\n");
     _isEnabled = YES;
     _isContinuous = YES;
     _isBordered = YES;
     _color = [[NSColor whiteColor] copy];
 
-    [[NSNotificationCenter defaultCenter]
-            addObserver: self
-               selector: @selector(colorPanelWillClose:)
-                   name: NSWindowWillCloseNotification
-                 object: [NSColorPanel sharedColorPanel]];
+    OSXERGalleryDebug("colorwell color ready; registering observers without panel\n");
     [[NSNotificationCenter defaultCenter]
             addObserver: self
                selector: @selector(colorWellDidBecomeExclusive:)
@@ -93,16 +96,14 @@ NSNotificationName _NSColorWellDidBecomeExclusiveNotification =
 
     [self registerForDraggedTypes: @[ NSColorPboardType ]];
 
+    OSXERGalleryDebug("colorwell init end\n");
     return self;
 }
 
 - (void) awakeFromNib {
     // this should be moved the nib initWithCoder:
-    [[NSNotificationCenter defaultCenter]
-            addObserver: self
-               selector: @selector(colorPanelWillClose:)
-                   name: NSWindowWillCloseNotification
-                 object: [NSColorPanel sharedColorPanel]];
+    // OSXER FIX (lazy color panel): avoid reentering panel loading from its nib.
+    OSXERGalleryDebug("colorwell awakeFromNib without panel\n");
     [[NSNotificationCenter defaultCenter]
             addObserver: self
                selector: @selector(colorWellDidBecomeExclusive:)
@@ -194,6 +195,13 @@ NSNotificationName _NSColorWellDidBecomeExclusiveNotification =
         return;
     }
 
+    // OSXER FIX (lazy color panel): balance both panel observers on activation.
+    OSXERGalleryDebug("colorwell activate: loading shared panel\n");
+    NSColorPanel *panel = [NSColorPanel sharedColorPanel];
+    OSXERGalleryDebug("colorwell activate: shared panel ready=%d\n", panel != nil);
+    if (panel == nil)
+        return;
+
     if (exclusive) {
         NSNotification *notification = [NSNotification
                 notificationWithName: _NSColorWellDidBecomeExclusiveNotification
@@ -209,10 +217,15 @@ NSNotificationName _NSColorWellDidBecomeExclusiveNotification =
             addObserver: self
                selector: @selector(changeColorWhenActive:)
                    name: NSColorPanelColorDidChangeNotification
-                 object: [NSColorPanel sharedColorPanel]];
+                 object: panel];
+    [[NSNotificationCenter defaultCenter]
+            addObserver: self
+               selector: @selector(colorPanelWillClose:)
+                   name: NSWindowWillCloseNotification
+                 object: panel];
 
     // Update the color panel with our color.
-    [[NSColorPanel sharedColorPanel] setColor: [self color]];
+    [panel setColor: [self color]];
 
     [NSApp orderFrontColorPanel: self];
     _isActive = YES;
@@ -224,6 +237,11 @@ NSNotificationName _NSColorWellDidBecomeExclusiveNotification =
         return;
 
     _isActive = NO;
+    // OSXER FIX (lazy color panel): only active wells observe panel closure.
+    [[NSNotificationCenter defaultCenter]
+            removeObserver: self
+                      name: NSWindowWillCloseNotification
+                    object: [NSColorPanel sharedColorPanel]];
     [[NSNotificationCenter defaultCenter]
             removeObserver: self
                       name: NSColorPanelColorDidChangeNotification

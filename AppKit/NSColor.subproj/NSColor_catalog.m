@@ -21,6 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSColor_catalog.h>
 #import <AppKit/NSDisplay.h>
 #import <AppKit/NSGraphics.h>
+#import "NSInterfacePart/OSXERSystemPalette.h"
 
 @interface NSColor (NSAppKitPrivate)
 - (CGColorRef) CGColorRef;
@@ -39,6 +40,11 @@ NSColor *NSColorGetCatalogColor(NSColorListName catalogName,
 {
     _catalogName = [catalogName copy];
     _colorName = [colorName copy];
+    // OSXER: nib-encoded System colours also use the active semantic palette.
+    if ([catalogName isEqualToString: @"System"] && OSXERBigSurEnabled()) {
+        NSColor *systemColor = [OSXERSystemPalette colorWithName: colorName];
+        if (systemColor != nil) color = systemColor;
+    }
     _color = [color copy];
     return self;
 }
@@ -75,11 +81,16 @@ NSColor *NSColorGetCatalogColor(NSColorListName catalogName,
 + (NSColor *) colorWithCatalogName: (NSColorListName) catalogName
                          colorName: (NSColorName) colorName
 {
+    // OSXER: resolve System here as well, for existing backend binaries.
+    NSColor *color = nil;
+    if ([catalogName isEqualToString: @"System"] && OSXERBigSurEnabled())
+        color = [OSXERSystemPalette colorWithName: colorName];
+    if (color == nil)
+        color = [[NSDisplay currentDisplay] colorWithName: colorName];
     return [[[self alloc]
             initWithCatalogName: catalogName
                       colorName: colorName
-                          color: [[NSDisplay currentDisplay]
-                                         colorWithName: colorName]]
+                          color: color]
             autorelease];
 }
 

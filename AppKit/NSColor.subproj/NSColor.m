@@ -17,6 +17,7 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
+#import "NSInterfacePart/OSXERSystemPalette.h"
 #import <AppKit/NSBezierPath.h>
 #import <AppKit/NSColor.h>
 #import <AppKit/NSColor_CGColor.h>
@@ -387,6 +388,8 @@ NSNotificationName const NSSystemColorsDidChangeNotification = @"NSSystemColorsD
 // overwrite this, if you need a different set of alternating background colors
 // NOTE: the list may contain more then two colors
 + (NSArray *) controlAlternatingRowBackgroundColors {
+    // OSXER: old callers use the same light palette as the modern accessor.
+    if (OSXERBigSurEnabled()) return [self alternatingContentBackgroundColors];
     return [NSArray arrayWithObjects: [NSColor whiteColor],
                                       [NSColor colorWithCalibratedRed: 0.90
                                                                 green: 0.95
@@ -469,6 +472,18 @@ NSNotificationName const NSSystemColorsDidChangeNotification = @"NSSystemColorsD
 + (NSColor *) menuItemTextColor {
     return [NSColor colorWithCatalogName: @"System"
                                colorName: @"menuItemTextColor"];
+}
+
++ (NSColor *) secondaryLabelColor {
+    return [NSColor colorWithCatalogName: @"System" colorName: @"secondaryLabelColor"];
+}
+
++ (NSColor *) tertiaryLabelColor {
+    return [NSColor colorWithCatalogName: @"System" colorName: @"tertiaryLabelColor"];
+}
+
++ (NSColor *) separatorColor {
+    return [NSColor colorWithCatalogName: @"System" colorName: @"separatorColor"];
 }
 
 + (NSColor *) labelColor {

@@ -17,6 +17,8 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
+// OSXER: private Big Sur style hooks.
+#import "NSInterfacePart/OSXERBigSurGraphicsStyle.h"
 #import "NSSegmentItem.h"
 #import <AppKit/NSButtonCell.h>
 #import <AppKit/NSPopUpWindow.h>
@@ -290,6 +292,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
              inFrame: (NSRect) frame
             withView: (NSView *) view
 {
+    // OSXER: draw segments on one shared track, retaining computed hit widths.
+    if (OSXERBigSurEnabled()) {
+        [(OSXERBigSurGraphicsStyle *) [view graphicsStyle]
+                drawSegment: idx cell: self inRect: frame];
+        return;
+    }
     NSButtonCell *cell = [self _cellForSegment: idx];
 
     [cell setControlView: view];
@@ -303,6 +311,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
     if ([_segmentComputedWidths count] != count)
         [self _recomputeSegmentWidths];
+
+    if (OSXERBigSurEnabled()) {
+        NSRect track = cellFrame;
+        track.size.width = 0;
+        for (NSNumber *width in _segmentComputedWidths) track.size.width += [width doubleValue];
+        [(OSXERBigSurGraphicsStyle *) [controlView graphicsStyle] drawSegmentedTrackInRect: track];
+    }
 
     for (i = 0; i < count; i++) {
         segmentFrame.size.width =

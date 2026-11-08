@@ -2,6 +2,10 @@
 #import <Onyx2D/O2Font_freetype.h>
 #import <Onyx2D/O2GraphicsState.h>
 #import <Onyx2D/O2Paint_color.h>
+#import <Onyx2D/OSXERGalleryDebug.h> // OSXER FIX (compatible context diagnostics)
+#import <Onyx2D/O2ColorSpace.h> // OSXER FIX (compatible context)
+#include <limits.h>
+#include <math.h>
 
 @implementation O2Context (O2BitmapContext)
 
@@ -31,6 +35,40 @@
 @end
 
 @implementation O2Context_builtin_FT
+
+// OSXER FIX (compatible context): O2LayerCreateWithContext dispatches this
+// initializer through O2Context. Only the Windows backend implemented it.
+// Use a transparent bitmap with the same device orientation as other bitmaps;
+// initWithSurface: also initializes the inherited rasterizer and graphics state.
+- initWithSize: (O2Size) size context: (O2Context *) other {
+    OSXERGalleryDebug("FT compatible context begin size=%.0fx%.0f source=%s\n",
+                      (double)size.width, (double)size.height,
+                      object_getClassName(other));
+    if (!isfinite(size.width) || !isfinite(size.height) ||
+        size.width <= 0 || size.height <= 0 ||
+        size.width > INT_MAX / 4 || size.height > INT_MAX / 4) {
+        [self release];
+        return nil;
+    }
+    O2ColorSpaceRef colorSpace = O2ColorSpaceCreateDeviceRGB();
+    O2Surface *surface = [[[self surfaceClass] alloc]
+            initWithBytes: NULL
+                    width: (size_t)ceil(size.width)
+                   height: (size_t)ceil(size.height)
+         bitsPerComponent: 8
+              bytesPerRow: 0
+               colorSpace: colorSpace
+               bitmapInfo: kO2ImageAlphaPremultipliedFirst | kO2BitmapByteOrder32Little];
+    O2ColorSpaceRelease(colorSpace);
+    if (surface == nil) {
+        [self release];
+        return nil;
+    }
+    self = [self initWithSurface: surface flipped: NO];
+    [surface release];
+    OSXERGalleryDebug("FT compatible context end ready=%d\n", self != nil);
+    return self;
+}
 
 - initWithSurface: (O2Surface *) surface flipped: (BOOL) flipped {
     if ([super initWithSurface: surface flipped: flipped] == nil)
@@ -174,7 +212,11 @@ static void renderFreeTypeBitmap(O2Context_builtin_FT *self, O2Surface *surface,
 {
     // FIXME: use advances if not NULL
 
-    O2SurfaceLock(_surface);
+    // OSXER FIX (compatible context): text inside a transparency group must
+    // use the same layer surface as paths, so disabled labels composite once.
+    O2LayerRef layer = [_layerStack lastObject];
+    O2Surface *surface = layer ? O2LayerGetSurface(layer) : _surface;
+    O2SurfaceLock(surface);
 
     O2GState *gState = O2ContextCurrentGState(self);
     O2Paint *paint = paintFromColor(gState->_fillColor);
@@ -203,7 +245,8 @@ static void renderFreeTypeBitmap(O2Context_builtin_FT *self, O2Surface *surface,
 
         if (face == NULL) {
             NSLog(@"face is NULL");
-            O2SurfaceUnlock(_surface);
+            O2PaintRelease(paint);
+            O2SurfaceUnlock(surface);
             return;
         }
 
@@ -212,7 +255,8 @@ static void renderFreeTypeBitmap(O2Context_builtin_FT *self, O2Surface *surface,
         if ((ftError =
                      FT_Set_Char_Size(face, 0, fontSize.height * 64, 72.0, 72.0))) {
             NSLog(@"FT_Set_Char_Size returned %d", ftError);
-            O2SurfaceUnlock(_surface);
+            O2PaintRelease(paint);
+            O2SurfaceUnlock(surface);
             return;
         }
 
@@ -226,7 +270,7 @@ static void renderFreeTypeBitmap(O2Context_builtin_FT *self, O2Surface *surface,
             if (ftError)
                 continue;
 
-            renderFreeTypeBitmap(self, _surface, &slot->bitmap,
+            renderFreeTypeBitmap(self, surface, &slot->bitmap,
                                  point.x + slot->bitmap_left,
                                  point.y - slot->bitmap_top, paint);
 
@@ -248,7 +292,7 @@ static void renderFreeTypeBitmap(O2Context_builtin_FT *self, O2Surface *surface,
         total = (total / O2FontGetUnitsPerEm(font)) * gState->_pointSize;
 
     } /* font lock */
-    O2SurfaceUnlock(_surface);
+    O2SurfaceUnlock(surface);
 }
 
 @end

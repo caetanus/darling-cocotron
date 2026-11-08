@@ -18,6 +18,8 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 // Original - Christopher Lloyd <cjwl@objc.net>
+// OSXER: private Big Sur style hooks.
+#import "NSInterfacePart/OSXERBigSurGraphicsStyle.h"
 #import <AppKit/NSFont.h>
 #import <AppKit/NSGraphicsStyle.h>
 #import <AppKit/NSMainMenuView.h>
@@ -36,6 +38,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 + (CGFloat) menuHeight {
+    // OSXER: this class method bypasses -graphicsStyle for window layout.
+    if (OSXERBigSurEnabled()) return 24;
     NSDictionary *attributes = [NSDictionary
             dictionaryWithObjectsAndKeys: [self menuFont], NSFontAttributeName,
                                           nil];

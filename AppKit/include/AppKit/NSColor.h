@@ -46,6 +46,11 @@ enum {
 }
 
 @property(class, strong, readonly) NSColor *labelColor;
+// OSXER: semantic system colours used by the Big Sur palette.
+@property(class, strong, readonly) NSColor *secondaryLabelColor;
+@property(class, strong, readonly) NSColor *tertiaryLabelColor;
+@property(class, strong, readonly) NSColor *separatorColor;
+
 
 @property(class, strong, readonly) NSColor *textColor;
 @property(class, strong, readonly) NSColor *selectedTextColor;

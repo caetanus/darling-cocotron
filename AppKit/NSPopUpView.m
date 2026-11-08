@@ -18,6 +18,8 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE. */
 
+// OSXER: private Big Sur style hooks.
+#import "NSInterfacePart/OSXERBigSurGraphicsStyle.h"
 #import <AppKit/NSGraphicsStyle.h>
 #import <AppKit/NSMenuItem.h>
 #import <AppKit/NSPopUpView.h>
@@ -427,6 +429,12 @@ static NSRect boundsToTitleAreaRect(NSRect rect) {
                                     branchArrowSize.width -
                                     keyEquivalentSize.width;
                 CENTER_PART_RECT_VERTICALLY(keyEquivalentSize);
+                // OSXER: popup menus share the secondary key-equivalent ink.
+                if (OSXERBigSurEnabled())
+                    [(OSXERBigSurGraphicsStyle *) [self graphicsStyle]
+                            drawMenuKeyEquivalent: keyString inRect: partRect
+                                          enabled: showsEnabled selected: selected];
+                else
                 [[self graphicsStyle] drawMenuItemText: keyString
                                                 inRect: partRect
                                                enabled: showsEnabled

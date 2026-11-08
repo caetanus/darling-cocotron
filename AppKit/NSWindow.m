@@ -18,6 +18,7 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
+#import "NSInterfacePart/OSXERSystemPalette.h"
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSColor.h>
 #import <AppKit/NSCursor.h>
@@ -1683,6 +1684,8 @@ static BOOL _allowsAutomaticWindowTabbing;
     }
 
     _firstResponder = responder;
+    // OSXER: focus rings and emphasized table ink follow responder changes.
+    if (OSXERBigSurEnabled()) [_backgroundView setNeedsDisplay: YES];
 
     if ([_firstResponder becomeFirstResponder]) {
         return YES;
@@ -1740,6 +1743,8 @@ static BOOL _allowsAutomaticWindowTabbing;
         [_firstResponder performSelector: _cmd];
 
     [self postNotificationName: NSWindowDidBecomeKeyNotification];
+    // OSXER: redraw active/inactive selection and keyboard focus appearance.
+    if (OSXERBigSurEnabled()) [_backgroundView setNeedsDisplay: YES];
 }
 
 - (void) resignKeyWindow {
@@ -1747,6 +1752,7 @@ static BOOL _allowsAutomaticWindowTabbing;
         [_firstResponder performSelector: _cmd];
 
     [self postNotificationName: NSWindowDidResignKeyNotification];
+    if (OSXERBigSurEnabled()) [_backgroundView setNeedsDisplay: YES];
 }
 
 - (void) becomeMainWindow {

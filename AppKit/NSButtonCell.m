@@ -17,6 +17,8 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
+// OSXER: private Big Sur style hooks.
+#import "NSInterfacePart/OSXERBigSurGraphicsStyle.h"
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSAttributedString.h>
 #import <AppKit/NSButtonCell.h>
@@ -1431,6 +1433,9 @@ static NSSize scaledImageSizeInFrameSize(NSSize imageSize, NSSize frameSize,
 }
 
 - (NSSize) cellSize {
+    // OSXER: sizeToFit uses the same 21 pt control envelope as drawing.
+    if (OSXERBigSurEnabled() && OSXERBigSurDrawsButton(self))
+        return OSXERBigSurButtonSize(self);
     NSSize result = NSMakeSize(0, 0);
     NSAttributedString *title = [self attributedTitle];
     NSImage *image = [self image];
@@ -1499,6 +1504,11 @@ static NSSize scaledImageSizeInFrameSize(NSSize imageSize, NSSize frameSize,
 
     if ([self isTransparent])
         return;
+
+    // OSXER: common buttons and built-in switch/radio glyphs are code-drawn.
+    if (OSXERBigSurEnabled() &&
+        [(OSXERBigSurGraphicsStyle *) [control graphicsStyle]
+                drawButtonCell: self inRect: frame]) return;
 
     [self drawBezelWithFrame: frame inView: control];
     [self drawInteriorWithFrame: frame inView: control];

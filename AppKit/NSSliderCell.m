@@ -16,6 +16,8 @@ FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
+// OSXER: private Big Sur style hooks.
+#import "NSInterfacePart/OSXERBigSurGraphicsStyle.h"
 #import "NSCoder+AppKit.h"
 #import <AppKit/NSBezierPath.h>
 #import <AppKit/NSColor.h>
@@ -29,8 +31,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSWindow.h>
 #import <Foundation/NSKeyedArchiver.h>
 
-#define PIXELINSET 8
-#define TICKHEIGHT 8
+// OSXER: reserve the knob radius in drawing AND tracking.
+#define PIXELINSET (OSXERBigSurEnabled() ? 10 : 8)
+#define TICKHEIGHT (OSXERBigSurEnabled() ? 4 : 8)
 
 @interface NSColorScaleSliderCell : NSSliderCell
 @end
@@ -338,7 +341,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (NSRect) knobRectFlipped: (BOOL) flipped {
     double value = [self doubleValue];
-    double percent = (value - _minValue) / (_maxValue - _minValue);
+    double percent = _maxValue > _minValue ? (value - _minValue) / (_maxValue - _minValue) : 0;
     NSRect sliderRect = [self _sliderRect];
     NSRect knobRect;
     NSSize knobSize = [[_controlView graphicsStyle]
@@ -528,7 +531,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         }
     }
 
-    if (drawDottedRect)
+    if (drawDottedRect && !OSXERBigSurEnabled())
         NSDottedFrameRect(NSInsetRect(frame, 1, 1)); // fugly
 }
 

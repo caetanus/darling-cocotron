@@ -22,6 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSColorPickerSliders.h>
 #import <AppKit/NSColorPickerWheel.h>
 #import <AppKit/NSRaise.h>
+#import <Onyx2D/OSXERGalleryDebug.h> // OSXER FIX (color panel diagnostics)
 
 NSString *const NSColorPanelColorDidChangeNotification =
         @"NSColorPanelColorDidChangeNotification";
@@ -48,8 +49,12 @@ static NSUInteger _pickerMask = 0;
 
 + (NSColorPanel *) sharedColorPanel {
     if (_colorPanel == nil) {
+        // OSXER FIX (color panel diagnostics): repeated begin without end exposes
+        // nib reentry; no run loop or notification registration is needed here.
+        OSXERGalleryDebug("colorpanel loadNib begin\n");
         if (![NSBundle loadNibNamed: @"NSColorPanel" owner: self])
             NSLog(@"Cannot load NSColorPanel.nib");
+        OSXERGalleryDebug("colorpanel loadNib end panel=%d\n", _colorPanel != nil);
 
         if (![_colorPanel setFrameUsingName: @"NSColorPanel"])
             [_colorPanel center];

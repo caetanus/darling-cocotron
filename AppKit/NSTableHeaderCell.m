@@ -16,6 +16,8 @@ FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
+// OSXER: private Big Sur style hooks.
+#import "NSInterfacePart/OSXERBigSurGraphicsStyle.h"
 #import <AppKit/AppKit.h>
 #import <AppKit/NSGraphicsStyle.h>
 #import <AppKit/NSRaise.h>
@@ -47,6 +49,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [[controlView graphicsStyle]
             drawTableViewHeaderInRect: cellFrame
                           highlighted: [self isHighlighted]];
+    // OSXER: the header uses 11 pt text independently of data-cell typography.
+    if (OSXERBigSurEnabled()) {
+        [(OSXERBigSurGraphicsStyle *) [controlView graphicsStyle]
+                drawHeaderText: [self attributedStringValue] inRect: cellFrame];
+        return;
+    }
     [[self attributedStringValue]
             _clipAndDrawInRect: [self titleRectForBounds: cellFrame]
                 truncatingTail: (_lineBreakMode > NSLineBreakByClipping)];

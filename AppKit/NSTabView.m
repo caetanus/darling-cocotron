@@ -17,6 +17,8 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
+// OSXER: private Big Sur style hooks.
+#import "NSInterfacePart/OSXERBigSurGraphicsStyle.h"
 #import <AppKit/NSColor.h>
 #import <AppKit/NSFont.h>
 #import <AppKit/NSGraphics.h>
@@ -107,7 +109,7 @@ id _NSTabViewFloatingCell = nil;
     _items = [NSMutableArray new];
     _selectedItem = nil;
     // should probably be boldUserFont
-    _font = [[NSFont boldSystemFontOfSize: 0] retain];
+    _font = [(OSXERBigSurEnabled() ? [NSFont systemFontOfSize: 13] : [NSFont boldSystemFontOfSize: 0]) retain];
     _type = NSTopTabsBezelBorder;
     _position = NSTabPositionTop;
     _allowsTruncatedLabels = NO;
@@ -263,6 +265,10 @@ id _NSTabViewFloatingCell = nil;
 }
 
 - (NSRect) rectForItemLabelAtIndex: (NSUInteger) index {
+    // OSXER: use the same centered segment rectangles for hit tests and drawing.
+    if (OSXERBigSurEnabled() && _type == NSTopTabsBezelBorder)
+        return [(OSXERBigSurGraphicsStyle *) [self graphicsStyle]
+                tabRectAtIndex: index inTabView: self];
     NSInteger i, count = [_items count];
     NSPoint base = NSMakePoint(0, [self bounds].size.height - 22);
     NSSize size;
@@ -468,6 +474,12 @@ id _NSTabViewFloatingCell = nil;
 - (void) drawRect: (NSRect) rect {
     NSGraphicsStyle *style = [self graphicsStyle];
 
+    // OSXER: top tabs overlap the content box instead of joining a raised bevel.
+    if (OSXERBigSurEnabled() && _type == NSTopTabsBezelBorder) {
+        [(OSXERBigSurGraphicsStyle *) style drawTopTabView: self];
+        return;
+    }
+
     switch (_type) {
     case NSTopTabsBezelBorder:
     case NSLeftTabsBezelBorder:
@@ -513,7 +525,8 @@ id _NSTabViewFloatingCell = nil;
     }
 
     case NSNoTabsBezelBorder:
-        NSDrawButton([self rectForBorder], rect);
+        if (OSXERBigSurEnabled()) [style drawTabPaneInRect: [self rectForBorder]];
+        else NSDrawButton([self rectForBorder], rect);
         break;
 
     case NSNoTabsLineBorder:

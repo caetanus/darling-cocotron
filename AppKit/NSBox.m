@@ -16,6 +16,8 @@ FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
+// OSXER: private Big Sur style hooks.
+#import "NSInterfacePart/OSXERBigSurGraphicsStyle.h"
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSAttributedString.h>
 #import <AppKit/NSBezierPath.h>
@@ -122,6 +124,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
     _isTransparent = YES;
     _titleCell = [[NSTextFieldCell alloc] initTextCell: @""];
+    if (OSXERBigSurEnabled()) [_titleCell setFont: [NSFont systemFontOfSize: 11]];
     _borderType = NSLineBorder;
     _titlePosition = NSAboveTop;
 
@@ -350,7 +353,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         break;
     }
 
-    if (_boxType != NSBoxSeparator) {
+    // OSXER: the rounded style supplies its own translucent fill.
+    if (_boxType != NSBoxSeparator && !OSXERBigSurEnabled()) {
         // Separator are transparent except for drawing a line
         [[NSColor controlColor] setFill];
         NSRectFill(grooveRect);
