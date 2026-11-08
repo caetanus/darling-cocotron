@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- OSXER MVP (regression bundle): generic document API fixture. -->
+<plist version="1.0"><dict>
+  <key>CFBundleExecutable</key><string>probe</string>
+  <key>CFBundleIdentifier</key><string>org.osxer.test.mvp-save</string>
+  <key>CFBundleName</key><string>MVP Save Probe</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleDocumentTypes</key><array><dict>
+    <key>CFBundleTypeName</key><string>Synthetic Rich Document</string>
+    <key>CFBundleTypeRole</key><string>Editor</string>
+    <key>LSItemContentTypes</key><array><string>public.rtf</string></array>
+    <key>NSDocumentClass</key><string>OSXERMVPDocument</string>
+  </dict></array>
+</dict></plist>

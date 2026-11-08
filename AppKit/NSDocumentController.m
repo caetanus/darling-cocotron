@@ -24,8 +24,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSMenu.h>
 #import <AppKit/NSMenuItem.h>
 #import <AppKit/NSOpenPanel.h>
+#import "NSSavePanel.subproj/NSSavePanel-Private.h"
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSWindowController.h>
+#import <AppKit/NSWorkspace.h>
+#import <LaunchServices/LaunchServices.h>
 #import <objc/runtime.h>
 
 @interface _NSUnsupportedDocument : NSObject
@@ -137,8 +140,10 @@ static NSDocumentController *shared = nil;
     if ([_fileTypes count] == 0)
         return nil;
 
-    return [(NSDictionary *) [_fileTypes objectAtIndex: 0]
-            objectForKey: @"CFBundleTypeName"];
+    // OSXER MVP (document types): UTI declarations name the programmatic type.
+    NSDictionary *info = [_fileTypes objectAtIndex: 0];
+    return [[info objectForKey: @"LSItemContentTypes"] firstObject] ?:
+            [info objectForKey: @"CFBundleTypeName"];
 }
 
 - (NSArray *) documentClassNames {
@@ -200,9 +205,16 @@ static NSDocumentController *shared = nil;
     int i, count = [_fileTypes count];
 
     for (i = 0; i < count; i++) {
-        NSArray *add = [(NSDictionary *) [_fileTypes objectAtIndex: i]
-                objectForKey: @"CFBundleTypeExtensions"];
-        [set addObjectsFromArray: add];
+        NSDictionary *info = [_fileTypes objectAtIndex: i];
+        // OSXER MVP (document types): include tags of modern declarations in filters.
+        [set addObjectsFromArray: [info objectForKey: @"CFBundleTypeExtensions"]];
+        for (NSString *type in [info objectForKey: @"LSItemContentTypes"]) {
+            NSArray *tags = (NSArray *)UTTypeCopyAllTagsWithClass((CFStringRef)type,
+                                                                kUTTagClassFilenameExtension);
+            if (tags)
+                [set addObjectsFromArray: tags];
+            [tags release];
+        }
     }
 
     return [set allObjects];
@@ -271,12 +283,8 @@ static NSDocumentController *shared = nil;
                 return check;
     }
 
-    NSString *lastOpenPanelDirectory = [[NSUserDefaults standardUserDefaults]
-            stringForKey: @"NSNavLastRootDirectory"];
-    if (lastOpenPanelDirectory != nil)
-        return lastOpenPanelDirectory;
-
-    return NSHomeDirectory();
+    // OSXER MVP (panel directory): use the same safe default as NSSavePanel.
+    return [NSSavePanel _defaultDirectory];
 }
 
 - (BOOL) hasEditedDocuments {
@@ -297,25 +305,14 @@ static NSDocumentController *shared = nil;
     if (![url isFileURL])
         return nil;
 
-    NSString *extension = [[url path] pathExtension];
-    if (extension == nil)
-        return nil;
-
-    NSString *UTI;
-
-    BOOL success = [url getResourceValue: &UTI
-                                  forKey: NSURLTypeIdentifierKey
-                                   error: error];
-    if (!success) {
-        return nil;
-    }
-
-    for(NSDictionary *fileType in _fileTypes) {
-        if ([[fileType objectForKey: @"LSItemContentTypes"] containsObject: UTI]) {
-            return [fileType objectForKey: @"CFBundleTypeName"];
+    // OSXER MVP (document types): NSWorkspace delegates type lookup to LS.
+    NSString *UTI = [[NSWorkspace sharedWorkspace] typeOfFile: [url path] error: error];
+    for (NSDictionary *fileType in _fileTypes) {
+        if (UTI && [[fileType objectForKey: @"LSItemContentTypes"] containsObject: UTI]) {
+            return UTI;
         }
     }
-    return nil;
+    return [self typeFromFileExtension: [[url path] pathExtension]];
 }
 
 - makeDocumentWithContentsOfFile: (NSString *) path ofType: (NSString *) type {

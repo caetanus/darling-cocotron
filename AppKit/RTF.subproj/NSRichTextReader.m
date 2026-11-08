@@ -613,6 +613,11 @@ static inline void flushPreviousString(NSRichTextReader *self) {
                 } else if ([self activeColorInfo]) {
                     [self flushColorInfo];
                     [self createColorInfo];
+                } else if ([self currentDestination] == DESTINATION_STRING) {
+                    // OSXER MVP (RTF round trip): ; only terminates table entries.
+                    if (_bufferIn == nil)
+                        _bufferIn = [[NSMutableData alloc] init];
+                    [_bufferIn appendBytes: &code length: 1];
                 }
                 _state = STATE_SKIPLAST;
             } else {
@@ -642,23 +647,18 @@ static inline void flushPreviousString(NSRichTextReader *self) {
                 flushPreviousString(self);
                 _state = STATE_SKIPLAST;
                 break;
-            } else if (code == '\\') {
-                flushPreviousString(self);
+            } else if (code == '\\' || code == '{' || code == '}') {
+                // OSXER MVP (RTF round trip): escaped delimiters are text.
+                if (_bufferIn == nil)
+                    _bufferIn = [[NSMutableData alloc] init];
+                [_bufferIn appendBytes: &code length: 1];
                 _state = STATE_SKIPLAST;
                 break;
             } else if (code == '_') {
                 flushPreviousString(self);
                 _state = STATE_SKIPLAST;
                 break;
-            } else if (code == '{') {
-                flushPreviousString(self);
-                _state = STATE_SKIPLAST;
-                break;
             } else if (code == '|') {
-                flushPreviousString(self);
-                _state = STATE_SKIPLAST;
-                break;
-            } else if (code == '}') {
                 flushPreviousString(self);
                 _state = STATE_SKIPLAST;
                 break;

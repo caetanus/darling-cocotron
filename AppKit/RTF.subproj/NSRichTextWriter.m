@@ -24,6 +24,8 @@
 #import <AppKit/NSFont.h>
 #import <AppKit/NSFontManager.h>
 #import <AppKit/NSRichTextWriter.h>
+#include <stdint.h>
+#include <stdio.h>
 #ifdef WIN32
 #import <malloc.h>
 #endif
@@ -33,6 +35,13 @@
 - initWithAttributedString: (NSAttributedString *) attributedString
                      range: (NSRange) range
 {
+    // OSXER MVP (RTF range): reject overflowing and out-of-bounds ranges.
+    if (range.location > [attributedString length] ||
+        range.length > [attributedString length] - range.location) {
+        [self release];
+        [NSException raise: NSRangeException format: @"Range exceeds attributed string"];
+        return nil;
+    }
     _attributedString = [attributedString retain];
     _string = [[_attributedString string] retain];
     _range = range;
@@ -65,45 +74,33 @@
 }
 
 - (void) appendStringFromRange: (NSRange) range {
-    unichar buffer[range.length];
-    unsigned char *ansi;
-    int i, ansiLength = 0;
-
-    [_string getCharacters: buffer range: range];
-    for (i = 0; i < range.length; i++) {
-        if (buffer[i] == '\n' || buffer[i] == '\\')
-            ansiLength += 2;
-        else if (buffer[i] > 127)
-            ansiLength += 9; // unicode is encoded as '\uXXXXXX?'
-    }
-
-    ansi = alloca(sizeof(unsigned char) * ansiLength);
-    ansiLength = 0;
-    for (i = 0; i < range.length; i++) {
-        unichar code = buffer[i];
-
-        if (code == '\n') {
-            ansi[ansiLength++] = '\\';
-            ansi[ansiLength++] = '\n';
-        } else if (code == '\\') {
-            ansi[ansiLength++] = '\\';
-            ansi[ansiLength++] = '\\';
-        } else if (code > 127) {
-            // "= \u<code>?" where "?" is a substitution char for readers not
-            // supporting
-
-            int len = sprintf((char *) ansi + ansiLength, "\\u%d?", code);
-            ansiLength += len;
+    // OSXER MVP (RTF writer): bounded storage, even for a multi-megabyte run.
+    // RTF uses escaped delimiters and signed UTF-16 units with one fallback.
+    for (NSUInteger i = range.location; i < NSMaxRange(range); i++) {
+        unichar code = [_string characterAtIndex: i];
+        if (code == '\n' || code == '\r') {
+            if (code == '\r' && i + 1 < NSMaxRange(range) &&
+                [_string characterAtIndex: i + 1] == '\n')
+                i++;
+            [self appendCString: "\\par\n"];
+        } else if (code == '\t') {
+            [self appendCString: "\\tab "];
+        } else if (code == '\\' || code == '{' || code == '}') {
+            char escaped[2] = {'\\', (char) code};
+            [_data appendBytes: escaped length: sizeof(escaped)];
+        } else if (code < 32 || code > 126) {
+            char escaped[16]; // enough for \\u-32768? and its terminator
+            snprintf(escaped, sizeof(escaped), "\\u%d?", (int) (int16_t) code);
+            [self appendCString: escaped];
         } else {
-            ansi[ansiLength++] = code;
+            char ascii = (char) code;
+            [_data appendBytes: &ascii length: 1];
         }
     }
-
-    [_data appendBytes: ansi length: ansiLength];
 }
 
 - (void) writeRichText {
-    [self appendCString: "{\\rtf1\\ansi "];
+    [self appendCString: "{\\rtf1\\ansi\\uc1 "]; // OSXER MVP (RTF Unicode)
 
     // Pass 1 : create the font & color tables
     NSMutableArray *colors = [NSMutableArray array];

@@ -262,4 +262,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return result;
 }
 
+// OSXER MVP (layoutOrientation): macOS 10.7+ API used by NSDocument/TextEdit when saving.
+// The container follows its text view's orientation; Cocotron lays out horizontally only.
+- (NSTextLayoutOrientation) layoutOrientation {
+    if ([_textView respondsToSelector: @selector(layoutOrientation)])
+        return [(id) _textView layoutOrientation];
+    return NSTextLayoutOrientationHorizontal;
+}
+
 @end

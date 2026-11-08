@@ -29,6 +29,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSSavePanel.h>
 #import <AppKit/NSWindowController.h>
+#import <AppKit/NSWorkspace.h>
 #import <objc/runtime.h>
 
 @implementation NSDocument
@@ -533,10 +534,23 @@ static int untitled_document_number = 0;
         if (wrapper == nil)
             return NO;
 
+        // OSXER MVP (save errors): the URL API preserves the filesystem error.
+        if ([wrapper isRegularFile]) {
+            BOOL success = [wrapper writeToURL: url options: NSFileWrapperWritingAtomic
+                          originalContentsURL: nil error: error];
+            if (success)
+                [wrapper setFilename: [[url path] lastPathComponent]];
+            return success;
+        }
         if (![wrapper writeToFile: [url path]
                          atomically: YES
-                    updateFilenames: YES])
+                    updateFilenames: YES]) {
+            if (error)
+                *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                            code: NSFileWriteUnknownError
+                                        userInfo: @{NSURLErrorKey: url}];
             return NO;
+        }
 
         return YES;
     }
@@ -692,8 +706,12 @@ static int untitled_document_number = 0;
     NSString *path = [_fileURL path];
     NSString *extension = [path pathExtension];
     if ([extension length] == 0) {
-        extension = [[[NSDocumentController sharedDocumentController]
-                fileExtensionsFromType: [self fileType]] objectAtIndex: 0];
+        // OSXER MVP (save type): legacy type APIs do not resolve UTI-only bundles.
+        extension = [[NSWorkspace sharedWorkspace]
+                preferredFilenameExtensionForType: [self fileType]];
+        if ([extension length] == 0)
+            extension = [[[NSDocumentController sharedDocumentController]
+                    fileExtensionsFromType: [self fileType]] firstObject];
     }
     NSSavePanel *savePanel = [NSSavePanel savePanel];
     [savePanel setRequiredFileType: extension];
@@ -731,6 +749,10 @@ static int untitled_document_number = 0;
         NSString *extension = [savePath pathExtension];
         NSString *fileType = [[NSDocumentController sharedDocumentController]
                 typeFromFileExtension: extension];
+        // OSXER MVP (save type): preserve the selected UTI when there is no
+        // legacy extension declaration; display names are not writable UTIs.
+        if (fileType == nil)
+            fileType = [self fileType];
 
         [[NSUserDefaults standardUserDefaults]
                 setObject: [savePath stringByDeletingLastPathComponent]
@@ -849,6 +871,10 @@ static int untitled_document_number = 0;
                    error: (NSError **) error
 {
     if (url == nil) {
+        // OSXER MVP (save errors): do not present a nil error after a failure.
+        if (error)
+            *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                        code: NSFileWriteInvalidFileNameError userInfo: nil];
         return NO;
     } else {
         BOOL success = [self writeSafelyToURL: url

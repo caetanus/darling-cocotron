@@ -144,7 +144,7 @@ NSUInteger NSUnderlineByWordMask = 0x8000;
         documentAttributes: (NSDictionary **) attributes
                      error: (NSError **) error
 {
-    NSUnimplementedMethod();
+    // OSXER MVP (RTF open): this entry point already decodes RTF below.
     NSString *docType = [options objectForKey:NSDocumentTypeDocumentAttribute];
    
     //Infer the document format if not provided
@@ -273,8 +273,10 @@ NSUInteger NSUnderlineByWordMask = 0x8000;
 }
 
 - initWithRTF: (NSData *) rtf documentAttributes: (NSDictionary **) attributes {
-    *attributes = [NSDictionary dictionaryWithObject: NSRTFTextDocumentType 
-                                              forKey: NSDocumentTypeDocumentAttribute];
+    // OSXER MVP (RTF read): documentAttributes is an optional out parameter.
+    if (attributes)
+        *attributes = [NSDictionary dictionaryWithObject: NSRTFTextDocumentType
+                                                 forKey: NSDocumentTypeDocumentAttribute];
     NSAttributedString *string =
             [NSRichTextReader attributedStringWithData: rtf];
     if (string == nil) {
@@ -308,7 +310,12 @@ NSUInteger NSUnderlineByWordMask = 0x8000;
         documentAttributes: (NSDictionary **) attributes
                      error: (NSError **) error
 {
-    NSData *data = [NSData dataWithContentsOfURL: url];
+    // OSXER MVP (RTF open): preserve read errors for document callers.
+    NSData *data = [NSData dataWithContentsOfURL: url options: 0 error: error];
+    if (data == nil) {
+        [self release];
+        return nil;
+    }
     return [self initWithData: data options: options documentAttributes: attributes error: error]; 
 }
 
@@ -519,8 +526,18 @@ NSUInteger NSUnderlineByWordMask = 0x8000;
         documentAttributes: (NSDictionary *) attributes
                      error: (NSError **) error
 {
-    NSUnimplementedMethod();
-    return 0;
+    // OSXER MVP (RTF save): use the same writer as the public RTF entry point.
+    if (range.location > [self length] || range.length > [self length] - range.location)
+        [NSException raise: NSRangeException format: @"Range exceeds attributed string"];
+    if ([[attributes objectForKey: NSDocumentTypeDocumentAttribute]
+                isEqual: NSRTFTextDocumentType])
+        return [self RTFFromRange: range documentAttributes: attributes];
+    if (error)
+        *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                    code: NSFileWriteUnknownError
+                                userInfo: @{NSLocalizedDescriptionKey:
+                                        @"Unsupported text document type"}];
+    return nil;
 }
 
 - (NSData *) docFormatFromRange: (NSRange) range
@@ -534,8 +551,11 @@ NSUInteger NSUnderlineByWordMask = 0x8000;
                       documentAttributes: (NSDictionary *) attributes
                                    error: (NSError **) error
 {
-    NSUnimplementedMethod();
-    return nil;
+    // OSXER MVP (RTF save): preserve dispatch and errors from dataFromRange:.
+    NSData *data = [self dataFromRange: range documentAttributes: attributes error: error];
+    if (data == nil)
+        return nil;
+    return [[[NSFileWrapper alloc] initRegularFileWithContents: data] autorelease];
 }
 
 #pragma mark -

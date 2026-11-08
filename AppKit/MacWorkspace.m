@@ -40,27 +40,36 @@
 - (BOOL) filenameExtension: (NSString *) extension
             isValidForType: (NSString *) type
 {
-    // TODO: call UTTypeCreateAllIdentifiersForTag
-    NSUnimplementedMethod();
-    return NO;
+    // OSXER MVP (document types): keep the type registry in LaunchServices.
+    NSArray *tags = (NSArray *)UTTypeCopyAllTagsWithClass((CFStringRef)type,
+                                                        kUTTagClassFilenameExtension);
+    BOOL found = NO;
+    for (NSString *tag in tags)
+        found |= [tag caseInsensitiveCompare: extension] == NSOrderedSame;
+    [tags release];
+    return found;
 }
 
 - (NSString *) preferredFilenameExtensionForType: (NSString *) type {
-    // TODO: call UTTypeCopyPreferredTagWithClass(kUTTagClassFilenameExtension)
-    NSUnimplementedMethod();
-    return NULL;
+    // OSXER MVP (document types).
+    return [(NSString *)UTTypeCopyPreferredTagWithClass((CFStringRef)type,
+                                         kUTTagClassFilenameExtension) autorelease];
 }
 
 - (BOOL) type: (NSString *) type conformsToType: (NSString *) conformsToType {
-    // TODO: call UTTypeConformsTo()
-    NSUnimplementedMethod();
-    return NO;
+    // OSXER MVP (document types).
+    return UTTypeConformsTo((CFStringRef)type, (CFStringRef)conformsToType);
 }
 
 - (NSString *) typeOfFile: (NSString *) path error: (NSError **) error {
-    // TODO: call LSCopyItemAttribute(kLSItemContentType)
-    NSUnimplementedMethod();
-    return NULL;
+    // OSXER MVP (document types): reject missing files before looking up tags.
+    NSDictionary *attributes = [[NSFileManager defaultManager] attributesOfItemAtPath: path error: error];
+    if (attributes == nil)
+        return nil;
+    if ([[attributes objectForKey: NSFileType] isEqual: NSFileTypeDirectory])
+        return (NSString *)kUTTypeDirectory;
+    return [(NSString *)UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension,
+                     (CFStringRef)[[path pathExtension] lowercaseString], NULL) autorelease];
 }
 
 - (BOOL) openFile: (NSString *) path {

@@ -27,28 +27,41 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSTextField.h>
 #import <AppKit/NSView.h>
 #import "_NSFileSystemDataSource.h"
+#import "NSSavePanel-Private.h"
 
 @implementation NSSavePanel
 
 @synthesize showsHiddenFiles=_showsHiddenFiles;
 
-// Like macOS, panels start in ~/Documents when there is one.
-static NSString *defaultDirectory(void) {
+// OSXER MVP (panel directory): never fall back to listing the user's home.
+// Darling's prefix setup keeps Documents local instead of an XDG home link.
++ (NSString *) _defaultDirectory {
+    NSFileManager *manager = [NSFileManager defaultManager];
+    NSString *last = [[NSUserDefaults standardUserDefaults]
+            stringForKey: @"NSNavLastRootDirectory"];
+    NSString *resolved = [last stringByResolvingSymlinksInPath];
+    BOOL isDirectory = NO;
+    if ([last isAbsolutePath] &&
+        ![resolved isEqualToString: [NSHomeDirectory() stringByResolvingSymlinksInPath]] &&
+#ifdef DARLING
+        ![resolved hasPrefix: @"/Volumes/SystemRoot/"] &&
+#endif
+        [manager fileExistsAtPath: last isDirectory: &isDirectory] && isDirectory)
+        return last;
+
     NSString *documents =
             [NSHomeDirectory() stringByAppendingPathComponent: @"Documents"];
-    BOOL isDirectory = NO;
-    if ([[NSFileManager defaultManager] fileExistsAtPath: documents
-                                             isDirectory: &isDirectory] &&
-        isDirectory)
-        return documents;
-    return NSHomeDirectory();
+    [manager createDirectoryAtPath: documents withIntermediateDirectories: YES
+                        attributes: nil error: NULL];
+    // If creation fails, display the empty/unavailable folder, not home or /.
+    return documents;
 }
 
 - (id) resetToDefaultValues {
     [self setTitle: @"Save"];
     [self setNameFieldStringValue: @""];
     [self _setFilename: @""];
-    [self setDirectory: defaultDirectory()];
+    [self setDirectory: [[self class] _defaultDirectory]];
     [self setRequiredFileType: @""];
     [self setAllowedFileTypes: nil];
     [self setAllowsOtherFileTypes: NO];
@@ -426,8 +439,7 @@ static NSSavePanel *_newPanel = nil;
     _dialogTitle = title;
 }
 
-// The file browser lists the panel's directory, as documented for
-// directoryURL; without one it lists "/".
+// The file browser lists the panel's directory, as documented for directoryURL.
 - (void) _showDirectory {
     id dataSource = [_outlineView dataSource];
     if (![dataSource respondsToSelector: @selector(setRootURL:)])
@@ -441,6 +453,9 @@ static NSSavePanel *_newPanel = nil;
 }
 
 - (void) setDirectory: (NSString *) directory {
+    // OSXER MVP (panel directory): legacy open-panel calls pass nil for default.
+    if ([directory length] == 0)
+        directory = [[self class] _defaultDirectory];
     directory = [directory copy];
     [_directory release];
     _directory = directory;

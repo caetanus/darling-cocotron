@@ -47,6 +47,7 @@ typedef enum {
 }
 
 - initWithContainerSize: (NSSize) size;
+- (NSTextLayoutOrientation) layoutOrientation; // OSXER MVP (layoutOrientation)
 
 - (NSSize) containerSize;
 
