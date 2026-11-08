@@ -64,8 +64,11 @@ static void ButtonBezel(NSRect rect, CGFloat radius, BOOL accent, BOOL flipped) 
     Fill(lower, radius, accent ? @"controlAccentColor" : @"buttonBottom");
     if (accent) {
         // Top blue median (250,40)=#2891FF; bottom (250,59)~#007AFF.
-        CGContextSaveGState(Context());
-        [Rounded(rect, radius) addClip];
+        // OSXER BIGSUR R3 (rounded gradient): Onyx2D path clipping currently
+        // intersects only the path's bounding box. Fill the rounded path
+        // through rectangular 1 px bands, so r5 corners survive. Measured
+        // default top/bottom: #2891FF/#007AFF, body 86x20; R2 corners were blue.
+        NSBezierPath *shape = Rounded(rect, radius);
         NSInteger height = MAX(1, (NSInteger)ceil(NSHeight(rect)));
         for (NSInteger y = 0; y < height; ++y) {
             CGFloat t = height > 1 ? (CGFloat)y / (height - 1) : 0;
@@ -73,11 +76,17 @@ static void ButtonBezel(NSRect rect, CGFloat radius, BOOL accent, BOOL flipped) 
                     green: (145 - 23*t)/255.0 blue: 1 alpha: 1] setFill];
             NSRect band = NSMakeRect(NSMinX(rect), flipped ? NSMinY(rect)+y : NSMaxY(rect)-y-1,
                                      NSWidth(rect), 1);
-            NSRectFill(band);
+            CGContextSaveGState(Context());
+            NSRectClip(band);
+            [shape fill];
+            CGContextRestoreGState(Context());
         }
-        CGContextRestoreGState(Context());
     } else {
-        Fill(rect, radius, @"controlColor");
+        // OSXER BIGSUR R3 (white corners): normal fill is #FFFFFF; the
+        // reference corner is rounded already, with shadow support at
+        // x139/y38, 1/2 px beyond the x140/y40 body. Fit blur2, offset1;
+        // retain r5 and the measured solid white interior (no invented tint).
+        ShadowFill(rect, radius, @"controlColor", @"buttonShadow", 2, flipped);
         Border(rect, radius, .5, @"buttonBorder");
     }
 }
@@ -232,10 +241,13 @@ NSSize OSXERBigSurButtonSize(NSButtonCell *cell) {
     if (check || radio) {
         // OSXER BIGSUR R2 (check/radio): x136..149 (14 px), center y86/120;
         // control origin x134; title ink starts x156 (6 px gap), corner r3.
-        CGFloat diameter = 14;
-        body = NSMakeRect(NSMinX(rect) + 2, NSMidY(rect) - diameter / 2,
+        // OSXER BIGSUR R3 (radio): 16 px circular body around (143,120),
+        // saturated core x136..149/y113..126 = 14x14, antialiased rim outside.
+        // Keep the label's x156 and the white 6 px dot; never use a square clip.
+        CGFloat diameter = radio ? 16 : 14;
+        body = NSMakeRect(NSMinX(rect) + (radio ? 1 : 2), NSMidY(rect) - diameter / 2,
                           diameter, diameter);
-        CGFloat radius = radio ? 7 : 3;
+        CGFloat radius = radio ? 8 : 3;
         if (on) ButtonBezel(body, radius, YES, flipped);
         else Fill(body, radius, @"controlColor");
         // OSXER BIGSUR R2 (unchecked rim): side (136,86)=#D1D1D1,
@@ -250,7 +262,7 @@ NSSize OSXERBigSurButtonSize(NSButtonCell *cell) {
         }
         if ([cell isHighlighted]) Fill(body, radius, @"separatorColor");
         if (on) {
-            if (radio) Fill(NSInsetRect(body, 4, 4), 3, @"controlColor"); // OSXER BIGSUR R2: dot 6 px
+            if (radio) Fill(NSInsetRect(body, 5, 5), 3, @"controlColor");
             else if ([cell state] == NSControlStateValueMixed) {
                 NSPoint p[] = {GlyphPoint(body, 3.5, 7, flipped), GlyphPoint(body, 10.5, 7, flipped)};
                 StrokeGlyph(p, 2, 2, Color(@"controlColor"));
@@ -260,8 +272,9 @@ NSSize OSXERBigSurButtonSize(NSButtonCell *cell) {
                 StrokeGlyph(p, 3, 2, Color(@"controlColor"));
             }
         }
-        titleRect = NSMakeRect(NSMaxX(body) + 5, NSMinY(rect),
-                               MAX(0, NSMaxX(rect) - NSMaxX(body) - 5), NSHeight(rect));
+        CGFloat gap = radio ? 4 : 5;
+        titleRect = NSMakeRect(NSMaxX(body) + gap, NSMinY(rect),
+                               MAX(0, NSMaxX(rect) - NSMaxX(body) - gap), NSHeight(rect));
     } else if ([cell isBordered]) {
         NSString *fill = defaulted ? @"controlAccentColor" :
                 (([cell isHighlighted] || (on && ([cell showsStateBy] & NSChangeGrayCellMask)))
@@ -429,14 +442,21 @@ NSSize OSXERBigSurButtonSize(NSButtonCell *cell) {
                        enabled: (BOOL) enabled highlighted: (BOOL) highlighted
                      upNotDown: (BOOL) up {
     BOOL flipped = [_view isFlipped];
-    NSRect body = NSInsetRect(clip, MAX(0, (NSWidth(clip)-14)/2), MAX(0, (NSHeight(clip)-20)/2));
+    // OSXER BIGSUR R3 (stepper frame): macOS support y274..297 (24 px
+    // including AA/shadow), R2 y272..292 + title/menu delta4 = 21 px.
+    // Fit a 14x23 body inside the whole 20x28 frame, not either half-button.
+    NSRect body = NSInsetRect(clip, MAX(0, (NSWidth(clip)-14)/2), MAX(0, (NSHeight(clip)-23)/2));
+    body.origin.y = floor(body.origin.y);
     CGContextSaveGState(Context());
     NSRectClip(rect);
     ButtonBezel(body, 6, NO, flipped);
     if (highlighted) Fill(body, 6, @"buttonPressed");
     NSRect divider = NSMakeRect(NSMinX(body), floor(NSMidY(body)), NSWidth(body), 1);
     Fill(divider, 0, @"fieldBorder");
-    NSRect glyph = NSMakeRect(NSMidX(body)-3, NSMidY(rect)-2, 6, 4);
+    NSRect half = body;
+    half.size.height /= 2;
+    if (up != flipped) half.origin.y += half.size.height;
+    NSRect glyph = NSMakeRect(NSMidX(body)-3, NSMidY(half)-2, 6, 4);
     NSPoint p[] = {GlyphPoint(glyph, 1, up ? 3 : 1, flipped),
                   GlyphPoint(glyph, 3, up ? 1 : 3, flipped),
                   GlyphPoint(glyph, 5, up ? 3 : 1, flipped)};
@@ -575,20 +595,14 @@ NSSize OSXERBigSurButtonSize(NSButtonCell *cell) {
 - (void) drawProgressIndicatorIndeterminate: (NSRect) rect clipRect: (NSRect) clip
                                     bezeled: (BOOL) bezeled animation: (double) animation {
     rect = [self drawProgressIndicatorBackground: rect clipRect: clip bezeled: bezeled];
-    CGContextSaveGState(Context());
-    [Rounded(rect, 3) addClip];
+    // OSXER BIGSUR R3 (busy capsule): reference x535..580/y281..286 =
+    // 46x6 on a 160x6 track. One still does not determine speed/direction;
+    // use the existing timer's [0,1] phase for continuous back-and-forth motion.
+    CGFloat width = MIN(NSWidth(rect), NSWidth(rect) * 46.0/160.0);
+    CGFloat phase = isfinite(animation) ? animation-floor(animation) : 0;
+    rect.origin.x += (NSWidth(rect)-width) * (1-cos(2*M_PI*phase))/2;
+    rect.size.width = width;
     Fill(rect, 3, @"controlAccentColor");
-    [[Color(@"controlColor") colorWithAlphaComponent: .35] setFill];
-    CGFloat phase = fmod(animation * NSWidth([_view bounds]), 12);
-    for (CGFloat x = NSMinX(rect) - 12 + phase; x < NSMaxX(rect) + 12; x += 12) {
-        NSBezierPath *stripe = [NSBezierPath bezierPath];
-        [stripe moveToPoint: NSMakePoint(x, NSMinY(rect))];
-        [stripe lineToPoint: NSMakePoint(x + 5, NSMinY(rect))];
-        [stripe lineToPoint: NSMakePoint(x - 1, NSMaxY(rect))];
-        [stripe lineToPoint: NSMakePoint(x - 6, NSMaxY(rect))];
-        [stripe closePath]; [stripe fill];
-    }
-    CGContextRestoreGState(Context());
 }
 
 - (void) drawScrollerButtonInRect: (NSRect) rect enabled: (BOOL) enabled
@@ -695,13 +709,16 @@ NSSize OSXERBigSurButtonSize(NSButtonCell *cell) {
     NSRect bounds = [tabView bounds];
     CGFloat scale = total > 0 ? MIN(1, MAX(0, NSWidth(bounds) - 12) / total) : 1;
     return NSMakeRect(NSMidX(bounds) - total * scale / 2 + offset * scale,
-                      [tabView isFlipped] ? NSMinY(bounds) + 1 : NSMaxY(bounds) - 22,
+                      [tabView isFlipped] ? NSMinY(bounds) + 6 : NSMaxY(bounds) - 27,
                       width * scale, 21);
 }
 - (void) drawTopTabView: (NSTabView *) tabView {
-    NSRect pane = NSInsetRect([tabView bounds], .5, .5);
-    pane.size.height -= 11;
-    if ([tabView isFlipped]) pane.origin.y += 11;
+    // OSXER BIGSUR R3 (tabs): mac pane x397..734/y338..427, frame
+    // x390/y322/352x116: x inset7, top16, bottom10; tabs start y328 (+6).
+    NSRect bounds = [tabView bounds];
+    NSRect pane = NSMakeRect(NSMinX(bounds)+7,
+            NSMinY(bounds)+([tabView isFlipped] ? 16 : 10),
+            MAX(0, NSWidth(bounds)-14), MAX(0, NSHeight(bounds)-26));
     [self drawTabPaneInRect: pane];
     NSUInteger count = [[tabView tabViewItems] count];
     if (!count) return;

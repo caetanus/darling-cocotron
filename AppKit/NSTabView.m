@@ -162,6 +162,12 @@ id _NSTabViewFloatingCell = nil;
 - (NSRect) rectForBorder {
     NSRect result = [self bounds];
 
+    // OSXER BIGSUR R3 (tab layout): share measured pane geometry with drawing:
+    // 338x90 inside 352x116, x inset7, top16/bottom10 (mac y338..427).
+    if (OSXERBigSurEnabled() && _type == NSTopTabsBezelBorder)
+        return NSMakeRect(NSMinX(result)+7, NSMinY(result)+([self isFlipped] ? 16 : 10),
+                          MAX(0, NSWidth(result)-14), MAX(0, NSHeight(result)-26));
+
     switch (_type) {
     case NSTopTabsBezelBorder:
     case NSLeftTabsBezelBorder:
@@ -182,6 +188,13 @@ id _NSTabViewFloatingCell = nil;
 
 - (NSRect) contentRect {
     NSRect result = [self rectForBorder];
+
+    // OSXER BIGSUR R3 (tab content): reference label ink starts x415/y384,
+    // R2 x407/y391 (+4 title/menu normalization => 11 px too low).
+    // Page origin x10/y13 (was x2/y2) corrects the 8x11 measured ink offset
+    // with the existing label inset and fixed page-local label frame.
+    if (OSXERBigSurEnabled() && _type == NSTopTabsBezelBorder)
+        return NSInsetRect(result, 3, 3);
 
     switch (_type) {
     case NSTopTabsBezelBorder:

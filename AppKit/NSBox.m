@@ -326,6 +326,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
     // OSXER BIGSUR R2 (separator): y308, x16..743, 1 px #DEDEDE;
     // do not subtract a nonexistent title from its 2 px frame.
+    // OSXER BIGSUR R3 (separator evidence): present in darling-r2 at y304,
+    // x16..743, exactly #DEDEDE. Adding the 28-24 title/menu delta gives
+    // reference y308; keep this geometry and color, no second line needed.
     if (OSXERBigSurEnabled() && _boxType == NSBoxSeparator) {
         [[NSColor colorWithCalibratedWhite: 222.0/255 alpha: 1] setFill];
         NSRect line = _bounds;

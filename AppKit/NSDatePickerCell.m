@@ -27,6 +27,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSParagraphStyle.h>
 #import <AppKit/NSStringDrawing.h>
 #import <Foundation/NSLocale.h>
+#import <Onyx2D/OSXERGalleryDebug.h> // OSXER BIGSUR R3 (date initialization trace)
 
 @implementation NSDatePickerCell
 
@@ -35,16 +36,28 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 // OSXER BIGSUR R2 (initializer dispatch): NSCell -init uses initImageCell:.
 - init { return [self initTextCell: @""]; }
 - initTextCell: (NSString *) string {
+    OSXERGalleryDebug("datepicker cell super init begin\n");
     if ((self = [super initTextCell: string])) {
-        _calendar = [[NSCalendar currentCalendar] copy];
+        // OSXER BIGSUR R3 (date creation): the R2 trace stops before the
+        // window opens. Avoid eager currentCalendar -> CFLocaleGetValue ->
+        // ICU default-calendar discovery in this fixed month/day/year cell.
+        // Its reference value is 1/1/2000 (x197..259, y546..555). Explicit
+        // Gregorian construction also avoids the lossy __NSCFCalendar copy.
+        // Bracket each potentially blocking stage; runtime confirmation is
+        // still needed on Darling, whose trace has no cell-level stack.
+        OSXERGalleryDebug("datepicker Gregorian calendar begin\n");
+        _calendar = [[NSCalendar alloc] initWithCalendarIdentifier: NSGregorianCalendar];
+        OSXERGalleryDebug("datepicker Gregorian calendar end ready=%d\n", _calendar != nil);
         _backgroundColor = [[NSColor textBackgroundColor] retain];
         _textColor = [[NSColor controlTextColor] retain];
         _elements = NSYearMonthDayDatePickerElementFlag;
         _style = NSTextFieldAndStepperDatePickerStyle;
         _drawsBackground = YES;
         [self setFont: [NSFont systemFontOfSize: 13]];
+        OSXERGalleryDebug("datepicker initial date begin\n");
         [self setDateValue: [NSDate date]];
         [self setEnabled: YES];
+        OSXERGalleryDebug("datepicker cell init end\n");
     }
     return self;
 }
@@ -82,7 +95,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     _backgroundColor = [[coder decodeObjectForKey: @"NSBackgroundColor"] copy];
     _textColor = [[coder decodeObjectForKey: @"NSTextColor"] copy];
     _timeInterval = [coder decodeDoubleForKey: @"NSTimeInterval"];
-    _calendar = [[NSCalendar currentCalendar] copy];
+    // OSXER BIGSUR R3 (date creation): use the same non-discovery default as init.
+    _calendar = [[NSCalendar alloc] initWithCalendarIdentifier: NSGregorianCalendar];
     // NSDatePicker has an NSEnabled field,
     [self setEnabled: YES];
 
@@ -193,10 +207,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) setTimeZone: (NSTimeZone *) timeZone {
+    OSXERGalleryDebug("datepicker timezone begin\n");
     timeZone = [timeZone copy];
     [_timeZone release];
     _timeZone = timeZone;
     [_calendar setTimeZone: timeZone]; // OSXER BIGSUR R2: component date honors supplied zone.
+    OSXERGalleryDebug("datepicker timezone end\n");
 }
 
 - (void) setDrawsBackground: (BOOL) flag {
@@ -240,6 +256,7 @@ static void drawRoundedSelection(NSRect rect) {
 }
 
 - (NSArray *) _attributedStrings {
+    OSXERGalleryDebug("datepicker components begin\n");
     NSMutableArray *result = [NSMutableArray array];
     NSMutableParagraphStyle *style = [[[NSParagraphStyle defaultParagraphStyle]
             mutableCopy] autorelease];
@@ -333,6 +350,7 @@ static void drawRoundedSelection(NSRect rect) {
                                        attributes: attributes] autorelease]];
     }
 
+    OSXERGalleryDebug("datepicker components end\n");
     return result;
 }
 

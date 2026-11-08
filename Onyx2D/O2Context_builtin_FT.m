@@ -6,6 +6,8 @@
 #import <Onyx2D/O2ColorSpace.h> // OSXER FIX (compatible context)
 #include <limits.h>
 #include <math.h>
+#include <string.h>
+#import <Foundation/NSUserDefaults.h> // OSXER BIGSUR R3 (small UI text)
 
 @implementation O2Context (O2BitmapContext)
 
@@ -111,12 +113,14 @@ static O2Paint *paintFromColor(O2ColorRef color) {
 
 static void applyCoverageToSpan_lRGBA8888_PRE(O2argb8u *dst,
                                               unsigned char *coverageSpan,
-                                              O2argb8u *src, int length)
+                                              O2argb8u *src, int length,
+                                              const unsigned char *coverageLUT)
 {
     int i;
 
     for (i = 0; i < length; i++, src++, dst++) {
         int coverage = coverageSpan[i];
+        if (coverageLUT) coverage = coverageLUT[coverage];
         int oneMinusCoverage = inverseCoverage(coverage);
         O2argb8u r = *src;
         O2argb8u d = *dst;
@@ -128,7 +132,7 @@ static void applyCoverageToSpan_lRGBA8888_PRE(O2argb8u *dst,
 
 static void renderFreeTypeBitmap(O2Context_builtin_FT *self, O2Surface *surface,
                                  FT_Bitmap *bitmap, NSInteger x, NSInteger y,
-                                 O2Paint *paint)
+                                 O2Paint *paint, const unsigned char *coverageLUT)
 {
     // Glyphs are blended with the destination, which needs a span reader.
     if (!surface->_read_argb8u)
@@ -186,7 +190,7 @@ static void renderFreeTypeBitmap(O2Context_builtin_FT *self, O2Surface *surface,
             } else {
                 self->_blend_argb8u_PRE(src, dst, chunk);
 
-                applyCoverageToSpan_lRGBA8888_PRE(dst, coverage, src, chunk);
+                applyCoverageToSpan_lRGBA8888_PRE(dst, coverage, src, chunk, coverageLUT);
 
                 if (direct == NULL) {
                     // When direct is NULL, dst is a temporary buffer, not the
@@ -260,9 +264,28 @@ static void renderFreeTypeBitmap(O2Context_builtin_FT *self, O2Surface *surface,
             return;
         }
 
+        // OSXER BIGSUR R3 (text weight): keep Noto Sans and #262626 ink.
+        // At 11pt, PNG integrated coverage Push buttons/Placeholder = 170.034 /
+        // 165.288 px; R2 = 146.361 / 139.913. Native and light hinting both
+        // retain the measured 8 px height; no hinting makes it 9 px. Light
+        // hinting + coverage^0.65 yields 169.231 / 163.477 in the host FT probe.
+        // At 13pt Normal/Sample text: reference 136.654/220.401; fit 140.115/220.658.
+        // This is a fitted mask transfer, not a claim about Apple's gamma.
+        // Limit it to the measured small Noto UI sizes; preserve Classic/other fonts.
+        BOOL smallUI = face->family_name && strcmp(face->family_name, "Noto Sans") == 0 &&
+                fontSize.height >= 10 && fontSize.height <= 14 &&
+                ![[[NSUserDefaults standardUserDefaults] stringForKey: @"OSXERGraphicsStyle"]
+                        isEqualToString: @"Classic"];
+        unsigned char coverageLUT[256];
+        if (smallUI) {
+            for (int c = 0; c < 256; ++c)
+                coverageLUT[c] = (unsigned char)lround(255 * pow(c/255.0, .65));
+        }
+        FT_Int32 loadFlags = smallUI ? FT_LOAD_TARGET_LIGHT : FT_LOAD_DEFAULT;
+
         for (i = 0; i < count; i++) {
 
-            ftError = FT_Load_Glyph(face, glyphs[i], FT_LOAD_DEFAULT);
+            ftError = FT_Load_Glyph(face, glyphs[i], loadFlags);
             if (ftError)
                 continue;
 
@@ -272,7 +295,7 @@ static void renderFreeTypeBitmap(O2Context_builtin_FT *self, O2Surface *surface,
 
             renderFreeTypeBitmap(self, surface, &slot->bitmap,
                                  point.x + slot->bitmap_left,
-                                 point.y - slot->bitmap_top, paint);
+                                 point.y - slot->bitmap_top, paint, smallUI ? coverageLUT : NULL);
 
             point.x += slot->advance.x >> 6;
         }
