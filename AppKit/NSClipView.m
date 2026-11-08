@@ -25,6 +25,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSScrollView.h>
 #import <Foundation/NSKeyedArchiver.h>
+#import "OSXERTableDebug.h"
 
 @implementation NSClipView
 
@@ -227,6 +228,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) drawRect: (NSRect) rect {
+    if (OSXERTableDebugEnabled()) {
+        fprintf(stderr, "[OSXER_TABLE_DEBUG] NSClipView drawRect dirty=%s "
+                        "bounds=%s document=%s frame=%s visible=%s "
+                        "hidden=%d canDraw=%d opaque=%d drawsBackground=%d\n",
+                [NSStringFromRect(rect) UTF8String],
+                [NSStringFromRect([self bounds]) UTF8String],
+                [NSStringFromClass([_docView class]) UTF8String] ?: "(nil)",
+                [NSStringFromRect([_docView frame]) UTF8String],
+                [NSStringFromRect([_docView visibleRect]) UTF8String],
+                [_docView isHiddenOrHasHiddenAncestor], [_docView canDraw],
+                [_docView isOpaque], [self drawsBackground]);
+        fflush(stderr);
+    }
+
     if ([_docView isOpaque]) {
         NSRect frame = [_docView frame];
 

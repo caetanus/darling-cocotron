@@ -24,6 +24,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSTableCornerView.h>
 #import <Foundation/NSKeyedArchiver.h>
+#import "OSXERTableDebug.h"
 
 NSString *const NSTableViewSelectionIsChangingNotification =
         @"NSTableViewSelectionIsChangingNotification";
@@ -1288,6 +1289,29 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
                  forTableColumn: column
                             row: row];
 
+    // Temporary diagnostics: do not log application text contents.
+    if (OSXERTableDebugEnabled()) {
+        NSFont *font = [dataCell font];
+        NSColor *textColor = [dataCell respondsToSelector: @selector(textColor)]
+                ? [(NSTextFieldCell *) dataCell textColor] : nil;
+        int drawsBackground = [dataCell respondsToSelector: @selector(drawsBackground)]
+                ? [(NSTextFieldCell *) dataCell drawsBackground] : -1;
+        int hidden = [dataCell respondsToSelector: @selector(isHidden)]
+                ? [(NSView *) dataCell isHidden] : -1;
+        fprintf(stderr, "[OSXER_TABLE_DEBUG] preparedCell column=%ld row=%ld "
+                        "class=%s stringValue.length=%lu textColor=%s "
+                        "font=%s size=%.2f lineHeight=%.2f "
+                        "drawsBackground=%d isHidden=%d enabled=%d\n",
+                (long) columnNumber, (long) row,
+                [NSStringFromClass([dataCell class]) UTF8String] ?: "(nil)",
+                (unsigned long) [[dataCell stringValue] length],
+                [[textColor description] UTF8String] ?: "(nil)",
+                [[font fontName] UTF8String] ?: "(nil)",
+                (double) [font pointSize], (double) [font defaultLineHeightForFont],
+                drawsBackground, hidden, [dataCell isEnabled]);
+        fflush(stderr);
+    }
+
     return dataCell;
 }
 
@@ -1300,6 +1324,14 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     if (row < 0 || row >= numberOfRows)
         [NSException raise: NSInvalidArgumentException
                     format: @"invalid row in drawRow:clipRect:"];
+
+    if (OSXERTableDebugEnabled()) {
+        fprintf(stderr, "[OSXER_TABLE_DEBUG] drawRow row=%ld rect=%s clip=%s columns=%s\n",
+                (long) row, [NSStringFromRect([self rectOfRow: row]) UTF8String],
+                [NSStringFromRect(clipRect) UTF8String],
+                [NSStringFromRange(visibleColumns) UTF8String]);
+        fflush(stderr);
+    }
 
     for (; drawThisColumn < NSMaxRange(visibleColumns); drawThisColumn++) {
 
@@ -1320,6 +1352,13 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
                     _adjustedFrame: [self frameOfCellAtColumn: drawThisColumn
                                                           row: row]
                            forCell: dataCell];
+
+            if (OSXERTableDebugEnabled()) {
+                fprintf(stderr, "[OSXER_TABLE_DEBUG] drawCell column=%ld row=%ld frame=%s\n",
+                        (long) drawThisColumn, (long) row,
+                        [NSStringFromRect(cellRect) UTF8String]);
+                fflush(stderr);
+            }
 
             [dataCell drawWithFrame: cellRect inView: self];
         }
@@ -1600,6 +1639,20 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
 - (void) drawRect: (NSRect) clipRect {
     NSRange visibleRows;
     NSInteger drawThisRow, numberOfRows = [self numberOfRows];
+
+    if (OSXERTableDebugEnabled()) {
+        fprintf(stderr, "[OSXER_TABLE_DEBUG] NSTableView drawRect dirty=%s "
+                        "bounds=%s visible=%s rowsInRect=%s columnsInRect=%s "
+                        "rows=%ld hidden=%d alternating=%d grid=%lu\n",
+                [NSStringFromRect(clipRect) UTF8String],
+                [NSStringFromRect([self bounds]) UTF8String],
+                [NSStringFromRect([self visibleRect]) UTF8String],
+                [NSStringFromRange([self rowsInRect: clipRect]) UTF8String],
+                [NSStringFromRange([self columnsInRect: clipRect]) UTF8String],
+                (long) numberOfRows, [self isHiddenOrHasHiddenAncestor],
+                _alternatingRowBackground, (unsigned long) _gridStyleMask);
+        fflush(stderr);
+    }
 
     [self drawBackgroundInClipRect: clipRect];
 

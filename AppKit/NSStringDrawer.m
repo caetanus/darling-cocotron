@@ -25,7 +25,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSTextContainer.h>
 #import <AppKit/NSTextStorage.h>
 #import <AppKit/NSView.h>
+#import <AppKit/NSTableView.h>
 #import <ApplicationServices/ApplicationServices.h>
+#import "OSXERTableDebug.h"
 
 const CGFloat NSStringDrawerLargeDimension = 1000000.;
 
@@ -197,6 +199,13 @@ const CGFloat NSStringDrawerLargeDimension = 1000000.;
     [_textStorage setAttributedString: astring];
 
     glyphRange = [_layoutManager glyphRangeForTextContainer: _textContainer];
+    if (OSXERTableDebugEnabled() &&
+        [[NSView focusView] isKindOfClass: [NSTableView class]]) {
+        fprintf(stderr, "[OSXER_TABLE_DEBUG] drawAttributedString rect=%s glyphs=%s\n",
+                [NSStringFromRect(rect) UTF8String],
+                [NSStringFromRange(glyphRange) UTF8String]);
+        fflush(stderr);
+    }
     [_layoutManager drawBackgroundForGlyphRange: glyphRange
                                         atPoint: rect.origin];
     [_layoutManager drawGlyphsForGlyphRange: glyphRange atPoint: rect.origin];
@@ -280,8 +289,23 @@ const CGFloat NSStringDrawerLargeDimension = 1000000.;
             size = [string size];
         } while ([clippedTitle length] && size.width > rect.size.width);
     }
+    // OSXER FIX: lay out at least one full line, then clip to the original
+    // rect above. A short table cell otherwise makes the typesetter reject
+    // the entire line instead of drawing its visible portion.
+    NSRect layoutRect = rect;
+    layoutRect.size.height = MAX(layoutRect.size.height, size.height);
+
+    if (OSXERTableDebugEnabled() &&
+        [[NSView focusView] isKindOfClass: [NSTableView class]]) {
+        fprintf(stderr, "[OSXER_TABLE_DEBUG] clipAndDraw clip=%s naturalSize=%s layout=%s\n",
+                [NSStringFromRect(rect) UTF8String],
+                [NSStringFromSize(size) UTF8String],
+                [NSStringFromRect(layoutRect) UTF8String]);
+        fflush(stderr);
+    }
+
     [[NSStringDrawer sharedStringDrawer] drawAttributedString: string
-                                                       inRect: rect];
+                                                       inRect: layoutRect];
     CGContextRestoreGState(graphicsPort);
 }
 
