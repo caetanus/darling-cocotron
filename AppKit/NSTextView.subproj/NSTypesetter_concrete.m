@@ -110,7 +110,14 @@ static void loadGlyphAndCharacterCacheForLocation(NSTypesetter_concrete *self,
 
     _scanRect = proposedRect;
 
+    // OSXER TEXTEDIT LOOK (paragraph metrics): honour inspector/ruler edits
+    // at the typesetter layer, including wrapped lines and mixed font runs.
     CGFloat fragmentHeight = _fontDefaultLineHeight;
+    CGFloat multiple = [_currentParagraphStyle lineHeightMultiple];
+    if (multiple > 0) fragmentHeight *= multiple;
+    fragmentHeight = MAX(fragmentHeight, [_currentParagraphStyle minimumLineHeight]);
+    CGFloat maximum = [_currentParagraphStyle maximumLineHeight];
+    if (maximum > 0) fragmentHeight = MIN(fragmentHeight, maximum);
 
     CGFloat wantedHeight = MAX(proposedRect.size.height, fragmentHeight);
     _scanRect.size.height = wantedHeight;
@@ -151,6 +158,18 @@ static void loadGlyphAndCharacterCacheForLocation(NSTypesetter_concrete *self,
             // Add left padding too for the first fragment of the line
             _scanRect.size.width -= _container.lineFragmentPadding;
             _scanRect.origin.x += _container.lineFragmentPadding;
+            // Leading and trailing paragraph indents are inside the text
+            // container's padding; tail <= 0 is relative to its trailing edge.
+            NSRange paragraph = [_string paragraphRangeForRange: NSMakeRange(startingGlyphIndex, 0)];
+            CGFloat head = startingGlyphIndex == paragraph.location
+                ? [_currentParagraphStyle firstLineHeadIndent] : [_currentParagraphStyle headIndent];
+            CGFloat tail = [_currentParagraphStyle tailIndent];
+            CGFloat right = tail > 0 ? _container.lineFragmentPadding + tail
+                : _containerSize.width - _container.lineFragmentPadding + tail;
+            CGFloat left = MAX(NSMinX(_scanRect), _container.lineFragmentPadding + head);
+            CGFloat end = MIN(NSMaxX(_scanRect), right);
+            _scanRect.origin.x = left;
+            _scanRect.size.width = MAX(0, end - left);
             _fullLineRect = _scanRect;
 #if DEBUG_GETLINEFRAGMENTRECT
             NSLog(@"_fullLineRect.size.width: %f", _fullLineRect.size.width);
@@ -842,7 +861,7 @@ static void loadGlyphAndCharacterCacheForLocation(NSTypesetter_concrete *self,
         _lineRange.location = NSMaxRange(fragmentRange);
         _lineRange.length = 0;
         _scanRect.origin.x = 0;
-        _scanRect.origin.y += _scanRect.size.height;
+        _scanRect.origin.y += _scanRect.size.height + [_currentParagraphStyle lineSpacing];
         _scanRect.size.width = 1e7; // That's what Cocoa is sending
         _scanRect.size.height = 0;
         _maxAscender = 0;
@@ -1085,6 +1104,10 @@ static void loadGlyphAndCharacterCacheForLocation(NSTypesetter_concrete *self,
                                              sweepDirection: NSLineSweepRight
                                           movementDirection: NSLineMovesDown
                                               remainingRect: &remainingRect];
+        // OSXER TEXTEDIT LOOK (empty/trailing line): keep the insertion point
+        // at the same padded origin as nonempty lines.
+        _scanRect.origin.x += _container.lineFragmentPadding;
+        _scanRect.size.width = MAX(0, _scanRect.size.width - 2*_container.lineFragmentPadding);
         NSRect usedRect = _scanRect;
         usedRect.size.width = 10;
         [_layoutManager setExtraLineFragmentRect: _scanRect

@@ -147,6 +147,7 @@ APPKIT_EXPORT NSString *const NSAllRomanInputSourcesLocaleIdentifier;
     BOOL _automaticTextReplacementEnabled;
 
     BOOL _usesInspectorBar;
+    NSView *_inspectorBar; // OSXER TEXTEDIT LOOK (inspector ownership)
 }
 
 - initWithFrame: (NSRect) frame textContainer: (NSTextContainer *) container;

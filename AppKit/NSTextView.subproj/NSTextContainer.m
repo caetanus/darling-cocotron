@@ -34,7 +34,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         _size.height = 1e7;
         _textView = [keyed decodeObjectForKey: @"NSTextView"];
         _layoutManager = [keyed decodeObjectForKey: @"NSLayoutManager"];
-        _lineFragmentPadding = 0;
+        // OSXER TEXTEDIT LOOK (padding): documented default 5 pt, matching
+        // reference text x5. The typesetter applies it once, inside the fragment.
+        _lineFragmentPadding = 5;
 
         int flags = [coder decodeIntForKey: @"NSTCFlags"];
         _widthTracksTextView = (flags & 1) != 0;
@@ -52,7 +54,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     _size = size;
     _textView = nil;
     _layoutManager = nil;
-    _lineFragmentPadding = 0;
+    // OSXER TEXTEDIT LOOK (padding): documented default 5 pt, matching
+    // reference text x5. The typesetter applies it once, inside the fragment.
+    _lineFragmentPadding = 5;
     _maximumNumberOfLines = 0;
     _widthTracksTextView = YES;
     _heightTracksTextView = YES;
@@ -217,7 +221,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) setLineFragmentPadding: (CGFloat) padding {
-    _lineFragmentPadding = padding;
+    if (_lineFragmentPadding != padding) {
+        _lineFragmentPadding = padding;
+        [_layoutManager textContainerChangedGeometry: self];
+    }
 }
 
 - (void) setMaximumNumberOfLines: (NSUInteger) maximumNumberOfLines {
@@ -240,9 +247,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     NSRect r = {.origin = NSZeroPoint, .size = _size};
     NSRect result = proposed;
 
-    // We don't want to render outside of our rect
-    r.origin.x += _lineFragmentPadding;
-    r.size.width -= _lineFragmentPadding;
+    // OSXER TEXTEDIT LOOK (padding): the container returns geometry; padding
+    // belongs to glyph layout, otherwise it is applied twice at the left edge.
     result = NSIntersectionRect(r, result);
 
     if (sweep != NSLineSweepRight || movement != NSLineMovesDown)
@@ -257,7 +263,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     if (result.size.height <= 0)
         result = NSZeroRect;
 
-    *remaining = NSZeroRect;
+    if (remaining) *remaining = NSZeroRect;
 
     return result;
 }

@@ -56,6 +56,7 @@ APPKIT_EXPORT NSString *const NSScrollViewDidLiveScrollNotification;
     CGFloat _magnification;
     CGFloat _minMagnification;
     CGFloat _maxMagnification;
+    NSView *_textInspectorBar; // OSXER TEXTEDIT LOOK (fixed format strip)
 }
 
 + (NSSize) frameSizeForContentSize: (NSSize) contentSize

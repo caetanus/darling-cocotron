@@ -221,6 +221,11 @@ static void beforeWaitingCallback(CFRunLoopObserverRef observer,
 
     [_windowsByID release];
     [_buttonClickCounts release];
+    // OSXER TEXTEDIT LOOK (memory): balance the cached screen array.
+    [_lastScreens release];
+#ifndef DARLING
+    [_inputSource release];
+#endif
     [super dealloc];
 }
 
@@ -1013,7 +1018,7 @@ static NSDictionary *modeInfoToDictionary(const XRRModeInfo *mi, int depth) {
     // OSXER FIX (scalable fonts): filter typefaces, not just family names.
     FcPatternAddBool(pat, FC_SCALABLE, FcTrue);
     FcPatternAddBool(pat, FC_OUTLINE, FcTrue);
-    FcObjectSet *props = FcObjectSetBuild(FC_FAMILY, FC_STYLE, FC_SLANT,
+    FcObjectSet *props = FcObjectSetBuild(FC_FAMILY, FC_POSTSCRIPT_NAME, FC_STYLE, FC_SLANT,
                                           FC_WIDTH, FC_WEIGHT, NULL);
 
     FcFontSet *set = FcFontList(O2FontSharedFontConfig(), pat, props);
@@ -1025,10 +1030,14 @@ static NSDictionary *modeInfoToDictionary(const XRRModeInfo *mi, int depth) {
         if (FcPatternGetString(p, FC_STYLE, 0, &typeface) == FcResultMatch) {
             NSString *traitName =
                     [NSString stringWithUTF8String: (const char *) typeface];
-            FcChar8 *pattern = FcNameUnparse(p);
-            NSString *name =
-                    [NSString stringWithUTF8String: (const char *) pattern];
-            FcStrFree(pattern);
+            // OSXER TEXTEDIT LOOK (font identity): a serialized FcPattern is
+            // a query, not a face name; it must never escape into NSFont/RTF.
+            FcChar8 *postScriptName = NULL;
+            if (FcPatternGetString(p, FC_POSTSCRIPT_NAME, 0, &postScriptName) !=
+                    FcResultMatch || !postScriptName[0])
+                continue;
+            NSString *name = [NSString stringWithUTF8String:
+                                      (const char *) postScriptName];
 
             NSFontTraitMask traits = 0;
             // Read the first value of each property; a face that doesn't

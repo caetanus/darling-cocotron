@@ -94,13 +94,14 @@
     if ((self = [super init])) {
         _affectedRange = affectedRange;
         _layoutManager = [layoutManager retain];
-        _undoManager = [undoManager retain];
+        // OSXER TEXTEDIT LOOK (memory): the manager retains this operation
+        // through its invocation; retaining it back leaks the entire history.
+        _undoManager = undoManager;
     }
     return self;
 }
 
 - (void) dealloc {
-    [_undoManager release];
     [_layoutManager release];
 
     [super dealloc];
@@ -132,8 +133,7 @@
 }
 
 - (void) setUndoManager: (NSUndoManager *) undoManager {
-    undoManager = [undoManager retain];
-    [_undoManager release];
+    // OSXER TEXTEDIT LOOK (memory): keep the same non-owning link as init.
     _undoManager = undoManager;
 }
 
@@ -266,7 +266,11 @@
     // Undo the change
     [_attributes restoreAttributesOfTextStorage: textStorage];
 
-    [[self firstTextViewForTextStorage: textStorage] didChangeText];
+    // OSXER TEXTEDIT LOOK (undo selection): refresh formatting controls and
+    // typing attributes from the restored runs, even if selection did not move.
+    NSTextView *view = [self firstTextViewForTextStorage: textStorage];
+    [view performSelector: @selector(_updateTypingAttributes)];
+    [view didChangeText];
 }
 @end
 

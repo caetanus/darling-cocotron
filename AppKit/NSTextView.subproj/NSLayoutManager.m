@@ -2859,24 +2859,22 @@ static inline void _appendRectToCache(NSLayoutManager *self, NSRect rect) {
     CGFloat delta =
             view.textContainer.lineFragmentPadding + view.textContainerOrigin.x;
 
-    // Add the margins markers
-#if 0
-    // Don't add these markers for now - their values are ignored by the layout manager
-    NSRulerMarker *marker = nil;
-    
-    marker = [NSRulerMarker leftMarginMarkerWithRulerView:ruler location:style.headIndent + delta];
-    [marker setRepresentedObject:@"NSHeadIndentRulerMarkerTag"];
-    [markers addObject:marker];
-    
-    // Looks like tailIndent value is a bit more complex - see Cocoa specs
-    marker = [NSRulerMarker rightMarginMarkerWithRulerView:ruler location:view.textContainer.containerSize.width - style.tailIndent - delta];
-    [marker setRepresentedObject:@"NSTailIndentRulerMarkerTag"];
-    [markers addObject:marker];
-    
-    marker = [NSRulerMarker firstIndentMarkerWithRulerView:ruler location:style.firstLineHeadIndent + delta];
-    [marker setRepresentedObject:@"NSFirstLineHeadIndentRulerMarkerTag"];
-    [markers addObject:marker];
-#endif
+    // OSXER TEXTEDIT LOOK (indents): leading indents are relative to the
+    // text area; a nonpositive tail is relative to its trailing edge.
+    CGFloat width = view.textContainer.containerSize.width - 2 * view.textContainer.lineFragmentPadding;
+    CGFloat tail = style.tailIndent > 0 ? style.tailIndent : width + style.tailIndent;
+    NSRulerMarker *marker = [NSRulerMarker leftMarginMarkerWithRulerView: ruler location: style.headIndent + delta];
+    [marker setRepresentedObject: @"NSHeadIndentRulerMarkerTag"];
+    [marker setRemovable: NO];
+    [markers addObject: marker];
+    marker = [NSRulerMarker rightMarginMarkerWithRulerView: ruler location: tail + delta];
+    [marker setRepresentedObject: @"NSTailIndentRulerMarkerTag"];
+    [marker setRemovable: NO];
+    [markers addObject: marker];
+    marker = [NSRulerMarker firstIndentMarkerWithRulerView: ruler location: style.firstLineHeadIndent + delta];
+    [marker setRepresentedObject: @"NSFirstLineHeadIndentRulerMarkerTag"];
+    [marker setRemovable: NO];
+    [markers addObject: marker];
     // Add the tab stops markers
     for (NSTextTab *textTab in style.tabStops) {
         NSRulerMarker *marker = nil;

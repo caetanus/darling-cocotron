@@ -59,6 +59,7 @@
 
 #import "NSRulerMarker+NSTextExtensions.h"
 #import "NSUndoTextOperation.h"
+#import "NSTextInspectorBar.h" // OSXER TEXTEDIT LOOK (inspector)
 
 NSString *const NSTextViewDidChangeSelectionNotification =
         @"NSTextViewDidChangeSelectionNotification";
@@ -76,6 +77,8 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 
 @interface NSTextView ()
 - (void) _updateTypingAttributes;
+- (void) _configureTextContainerSize;
+- (void) _changeInspectorParagraph: (NSString *) property value: (NSNumber *) value;
 - (void) _replaceCharactersInRange: (NSRange) range
                         withString: (id) string
                useTypingAttributes: (BOOL) useTypingAttributes
@@ -223,7 +226,9 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 
         _textContainer =
                 [[keyed decodeObjectForKey: @"NSTextContainer"] retain];
-        _textContainerInset = NSMakeSize(4, 4);
+        // OSXER TEXTEDIT LOOK (text origin): default container covers the view;
+        // the container's 5 pt line padding supplies reference first glyph x5.
+        _textContainerInset = NSZeroSize;
 
         _textStorage = [[[_textContainer layoutManager] textStorage] retain];
         [_textStorage addLayoutManager: [_textContainer layoutManager]];
@@ -242,7 +247,10 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
         _textColor = [[NSColor textColor] copy];
 
         _textAlignment = [[sharedData defaultParagraphStyle] alignment];
-        _insertionPointColor = [[sharedData insertionColor] retain];
+        // OSXER TEXTEDIT LOOK (caret): reference x4..5, y88..101, RGB #007AFF.
+        _insertionPointColor = [(OSXERBigSurEnabled()
+                ? [NSColor colorWithCatalogName: @"System" colorName: @"insertionPoint"]
+                : [sharedData insertionColor]) retain];
 
         _usesFontPanel = YES;
 
@@ -311,7 +319,7 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 
     _textContainer = [container retain];
     [_textContainer setTextView: self];
-    _textContainerInset = NSMakeSize(0, 0);
+    _textContainerInset = NSZeroSize;
 
     _isEditable = YES;
     _isSelectable = YES;
@@ -344,8 +352,9 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 
     [self _setTextStorage: [[container layoutManager] textStorage]];
 
-    [self setBoundsOrigin: NSMakePoint(-_textContainerInset.width,
-                                       -_textContainerInset.height)];
+    // OSXER TEXTEDIT LOOK (text origin): draw/hit-test already add the inset;
+    // shifting bounds as well would apply an explicit caller inset twice.
+    [self setBoundsOrigin: NSZeroPoint];
     [self configureMenu];
 
     [self registerForDraggedTypes: [NSArray
@@ -380,6 +389,9 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 }
 
 - (void) dealloc {
+    [(NSTextInspectorBar *)_inspectorBar detachTextView];
+    [_inspectorBar removeFromSuperview];
+    [_inspectorBar release];
     if (_delegate) {
         // Be sure to remove our delegate as an observer before we die
         [self setDelegate: nil];
@@ -402,6 +414,10 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
     [_selectedTextAttributes release];
     [_fieldEditorUndoManager release];
     [_undoTyping release];
+    // OSXER TEXTEDIT LOOK (memory): balance kill-buffer/completion ownership.
+    [_killBuffer release];
+    [_userCompletionHint release];
+    [_userCompletions release];
     [super dealloc];
 }
 
@@ -500,6 +516,10 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 
 - (void) setTextContainerInset: (NSSize) size {
     _textContainerInset = size;
+    // OSXER TEXTEDIT LOOK (inset): recalculate wrapping and ruler origin too.
+    [self _configureTextContainerSize];
+    [self updateRuler];
+    [self setNeedsDisplay: YES];
 }
 
 - (void) setUsesRuler: (BOOL) flag {
@@ -847,8 +867,9 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 
     if (NSIntersectsRect(glyphRect,
                          [[self layoutManager] extraLineFragmentRect])) {
-        glyphRange.location = [layoutManager numberOfGlyphs] - 1;
-        glyphRange.length = 1;
+        // OSXER TEXTEDIT LOOK (empty caret): an empty document has no glyph -1.
+        NSUInteger count = [layoutManager numberOfGlyphs];
+        glyphRange = count ? NSMakeRange(count - 1, 1) : NSMakeRange(0, 0);
     } else {
         glyphRange =
                 [layoutManager glyphRangeForBoundingRect: glyphRect
@@ -897,7 +918,7 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
                     result.origin.x = NSMaxX(result);
                 }
             }
-            result.size.width = 1;
+            result.size.width = OSXERBigSurEnabled() && !_isFieldEditor ? 2 : 1;
         } else {
             NSUInteger rectCount = 0;
             NSRect *rectArray = [[self layoutManager]
@@ -907,7 +928,8 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
                                        rectCount: &rectCount];
             result = rectArray[0];
         }
-        result.size.width = 1;
+        result.size.width = OSXERBigSurEnabled() && !_isFieldEditor ? 2 : 1;
+        if (result.size.width == 2) result.origin.x -= 1;
     } else {
         if (range.location >= [_textStorage length]) {
             result = [[self layoutManager] extraLineFragmentRect];
@@ -974,6 +996,7 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 }
 
 - (void) updateRuler {
+    [(NSTextInspectorBar *)_inspectorBar syncSelection];
     NSRulerView *ruler = [[self enclosingScrollView] horizontalRulerView];
 
     if (ruler != nil) {
@@ -2641,6 +2664,7 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 
 - (void) setEditable: (BOOL) flag {
     _isEditable = flag;
+    [(NSTextInspectorBar *)_inspectorBar syncSelection];
 }
 
 - (void) setSelectable: (BOOL) flag {
@@ -2649,10 +2673,15 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 
 - (void) setRichText: (BOOL) flag {
     _isRichText = flag;
+    [(NSTextInspectorBar *)_inspectorBar syncSelection];
 }
 
 - (void) setFieldEditor: (BOOL) flag {
     _isFieldEditor = flag;
+    if (flag) {
+        [self setTextContainerInset: NSZeroSize];
+        [[self textContainer] setLineFragmentPadding: 0];
+    }
 }
 
 - (void) setFont: (NSFont *) font {
@@ -2862,7 +2891,9 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
         // converted by the sender
         [_textStorage beginEditing];
 
-        while (nextCharIndex <= maxCharIndex) {
+        // OSXER TEXTEDIT LOOK (font editing): never read at length (including
+        // an empty document), and register the changed runs with undo.
+        while (nextCharIndex < maxCharIndex) {
             NSRange effectiveRange = NSMakeRange(0, 0);
 
             NSFont *font = [_textStorage attribute: NSFontAttributeName
@@ -2872,9 +2903,7 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
             if (font) {
                 NSRange changeRange =
                         NSIntersectionRange(effectiveRange, range);
-                [_textStorage addAttribute: NSFontAttributeName
-                                     value: font
-                                     range: changeRange];
+                [self _addAttribute: NSFontAttributeName value: font range: changeRange];
             }
             if (effectiveRange.location != NSNotFound &&
                 effectiveRange.length > 0) {
@@ -2885,7 +2914,7 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
         }
         [_textStorage endEditing];
 
-        [self didChangeText];
+        if (range.length) [self didChangeText];
     }
     NSFont *font = [[self typingAttributes] objectForKey: NSFontAttributeName];
     if (font) {
@@ -2967,6 +2996,8 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 }
 
 - (BOOL) becomeFirstResponder {
+    // OSXER TEXTEDIT LOOK (inspector owner): support multiple/page text views.
+    if (_usesInspectorBar) [[self enclosingScrollView] tile];
     [self updateInsertionPointStateAndRestartTimer: YES];
     if (![self needsDisplay] && [self shouldDrawInsertionPoint])
         [self _displayInsertionPointWithState: YES];
@@ -3854,10 +3885,13 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
                [representedObject isEqual: @"NSTailIndentRulerMarkerTag"] ||
                [representedObject
                        isEqual: @"NSFirstLineHeadIndentRulerMarkerTag"]) {
-        // TODO
-        // style.headIndent = location
-        // style.tailIndent = view.textContainer.containerSize.width - location
-        // style.firstLineHeadIndent = location
+        // OSXER TEXTEDIT LOOK (indent editing): preserve other paragraph
+        // attributes and use the same undo/delegate path as the format bar.
+        NSString *property = [representedObject isEqual: @"NSHeadIndentRulerMarkerTag"] ? @"headIndent"
+            : [representedObject isEqual: @"NSTailIndentRulerMarkerTag"] ? @"tailIndent" : @"firstLineHeadIndent";
+        if ([property isEqual: @"tailIndent"])
+            location -= self.textContainer.containerSize.width - 2*self.textContainer.lineFragmentPadding;
+        [self _changeInspectorParagraph: property value: [NSNumber numberWithDouble: location]];
     }
 }
 
@@ -4063,7 +4097,6 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 }
 
 - (BOOL) usesInspectorBar {
-    NSUnimplementedMethod();
     return _usesInspectorBar;
 }
 
@@ -4077,9 +4110,62 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
     _usesFindBar = value;
 }
 
+// OSXER TEXTEDIT LOOK (inspector): independent of ruler visibility.
+- (NSView *) _textInspectorBar {
+    if (!_usesInspectorBar) return nil;
+    if (!_inspectorBar)
+        _inspectorBar = [[NSTextInspectorBar alloc] initWithTextView: self];
+    return _inspectorBar;
+}
+
 - (void) setUsesInspectorBar: (BOOL) value {
-    NSUnimplementedMethod();
     _usesInspectorBar = value;
+    [[self enclosingScrollView] tile];
+    [(NSTextInspectorBar *)_inspectorBar syncSelection];
+}
+
+// Attribute commands preserve unrelated runs and use the same delegate/undo
+// hooks as other editing actions. Empty selections update only typing state.
+- (void) _changeInspectorAttribute: (NSString *) key value: (id) value paragraph: (BOOL) paragraph {
+    if (![self isEditable] || ![self isRichText]) return;
+    NSRange range = paragraph ? [self rangeForUserParagraphAttributeChange]
+                              : [self rangeForUserCharacterAttributeChange];
+    if (range.location == NSNotFound ||
+        ![self shouldChangeTextInRange: range replacementString: nil]) return;
+    if (range.length) {
+        if (value) [self _addAttribute: key value: value range: range];
+        else [self _removeAttribute: key range: range];
+        [self didChangeText];
+    }
+    NSMutableDictionary *attributes = [[[self typingAttributes] mutableCopy] autorelease];
+    if (value) [attributes setObject: value forKey: key];
+    else [attributes removeObjectForKey: key];
+    [self setTypingAttributes: attributes];
+}
+
+- (void) _changeInspectorParagraph: (NSString *) property value: (NSNumber *) value {
+    if (![self isEditable] || ![self isRichText]) return;
+    NSRange range = [self rangeForUserParagraphAttributeChange];
+    if (range.location == NSNotFound ||
+        ![self shouldChangeTextInRange: range replacementString: nil]) return;
+    [_textStorage beginEditing];
+    for (NSUInteger index = range.location; index < NSMaxRange(range);) {
+        NSRange effective;
+        NSParagraphStyle *old = [_textStorage attribute: NSParagraphStyleAttributeName atIndex: index effectiveRange: &effective];
+        NSMutableParagraphStyle *style = [[(old ?: [NSParagraphStyle defaultParagraphStyle]) mutableCopy] autorelease];
+        [style setValue: value forKey: property];
+        NSRange change = NSIntersectionRange(range, effective);
+        [self _addAttribute: NSParagraphStyleAttributeName value: style range: change];
+        index = NSMaxRange(change);
+    }
+    [_textStorage endEditing];
+    if (range.length) [self didChangeText];
+    NSMutableDictionary *attributes = [[[self typingAttributes] mutableCopy] autorelease];
+    NSParagraphStyle *old = [attributes objectForKey: NSParagraphStyleAttributeName] ?: [NSParagraphStyle defaultParagraphStyle];
+    NSMutableParagraphStyle *style = [[old mutableCopy] autorelease];
+    [style setValue: value forKey: property];
+    [attributes setObject: style forKey: NSParagraphStyleAttributeName];
+    [self setTypingAttributes: attributes];
 }
 
 - (BOOL) isGrammarCheckingEnabled {

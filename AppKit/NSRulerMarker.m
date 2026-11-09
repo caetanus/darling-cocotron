@@ -23,11 +23,26 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSRulerView.h>
 #import <AppKit/NSScrollView.h>
 #import <AppKit/NSWindow.h>
+#import <AppKit/NSColor.h>
+#import <AppKit/NSBezierPath.h>
+#import "NSInterfacePart/OSXERSystemPalette.h"
 
 @implementation NSRulerMarker
 
 + (NSImage *) defaultMarkerImage {
-    return [NSImage imageNamed: @"NSRulerMarkerTab"];
+    if (!OSXERBigSurEnabled()) return [NSImage imageNamed: @"NSRulerMarkerTab"];
+    // OSXER TEXTEDIT LOOK (default marker): measured 6x9 px flag, #808080.
+    NSImage *image = [[[NSImage alloc] initWithSize: NSMakeSize(6, 9)] autorelease];
+    [image lockFocus];
+    [[NSColor colorWithCalibratedWhite: 128.0/255 alpha: 1] setFill];
+    NSRectFill(NSMakeRect(0, 0, 1, 9));
+    NSBezierPath *path = [NSBezierPath bezierPath];
+    [path moveToPoint: NSMakePoint(0, 9)];
+    [path lineToPoint: NSMakePoint(6, 5)];
+    [path lineToPoint: NSMakePoint(0, 2)];
+    [path closePath]; [path fill];
+    [image unlockFocus];
+    return image;
 }
 
 - (id) initWithRulerView: (NSRulerView *) ruler
@@ -56,7 +71,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (id) copyWithZone: (NSZone *) zone {
     NSRulerMarker *copy = NSCopyObject(self, 0, zone);
 
-    copy->_ruler = [_ruler retain];
+    // OSXER TEXTEDIT LOOK (memory): the ruler owns markers, not vice versa.
+    copy->_ruler = _ruler;
     copy->_image = [_image retain];
     copy->_representedObject = [_representedObject copy];
 
@@ -96,8 +112,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) setImage: (NSImage *) image {
+    // OSXER TEXTEDIT LOOK (memory): allow assigning the current image.
+    image = [image retain];
     [_image release];
-    _image = [image retain];
+    _image = image;
 }
 
 - (void) setImageOrigin: (NSPoint) point {

@@ -423,6 +423,8 @@ NSNotificationName NSControlTintDidChangeNotification = @"NSControlTintDidChange
     copy->_image = [_image retain];
     copy->_formatter = [_formatter retain];
     copy->_representedObject = [_representedObject retain];
+    // OSXER TEXTEDIT LOOK (memory): NSCopyObject only copied this pointer.
+    copy->_identifier = [_identifier copy];
 
     return copy;
 }

@@ -139,8 +139,10 @@ static NSLock *_cacheLock = nil;
     for (i = 0; i < _fontCacheSize; i++) {
         NSFont *check = _fontCache[i];
 
-        if (check != nil && [[check fontName] isEqualToString: name] &&
-            [check pointSize] == size)
+        // OSXER TEXTEDIT LOOK (memory): cache by the creation request. The
+        // resolved PostScript name can differ (e.g. "Noto Sans"/"NotoSans").
+        if (check != nil && [check->_name isEqualToString: name] &&
+            check->_pointSize == size)
             return i;
     }
 
@@ -153,9 +155,11 @@ static NSLock *_cacheLock = nil;
     [_cacheLock lock];
     NSUInteger i = [self _cacheIndexOfFontWithName: name size: size];
 
-    font = (i == NSNotFound) ? (NSFont *) nil : _fontCache[i];
+    // OSXER TEXTEDIT LOOK (memory): a factory result must survive replacement
+    // of its previous owner until the caller's autorelease pool drains.
+    font = (i == NSNotFound) ? (NSFont *) nil : [_fontCache[i] retain];
     [_cacheLock unlock];
-    return font;
+    return [font autorelease];
 }
 
 + (void) addFontToCache: (NSFont *) font {
@@ -185,11 +189,14 @@ static NSLock *_cacheLock = nil;
 
 + (void) removeFontFromCache: (NSFont *) font {
     [_cacheLock lock];
-    NSUInteger i = [self _cacheIndexOfFontWithName: [font fontName]
-                                              size: [font pointSize]];
-
-    if (i != NSNotFound)
-        _fontCache[i] = nil;
+    // OSXER TEXTEDIT LOOK (memory): this is a non-owning cache. Distinct
+    // requests can resolve to the same face/size; removing by that value
+    // erased a different live font and left the dying font dangling. Never
+    // message cached fonts here, including a partially initialized receiver.
+    for (NSUInteger i = 0; i < _fontCacheSize; i++) {
+        if (_fontCache[i] == font)
+            _fontCache[i] = nil;
+    }
     [_cacheLock unlock];
 }
 
@@ -610,7 +617,10 @@ static NSLock *_cacheLock = nil;
 }
 
 - (NSString *) fontName {
-    return _name;
+    // OSXER TEXTEDIT LOOK (font identity): report the resolved face's PostScript
+    // name, never the fontconfig request (which may contain an entire pattern).
+    NSString *name = [(NSString *) CTFontCopyPostScriptName(_ctFont) autorelease];
+    return [name length] ? name : _name;
 }
 
 - (const CGFloat *) matrix {
@@ -643,26 +653,9 @@ static NSLock *_cacheLock = nil;
 }
 
 - (NSString *) familyName {
-    NSString *familyName =
-            [[NSFontFamily fontFamilyWithTypefaceName: _name] name];
-    if (familyName == nil) {
-        NSString *blank = @" ";
-        NSMutableArray *nameComponents = [NSMutableArray
-                arrayWithArray: [_name componentsSeparatedByString: blank]];
-        while ([nameComponents count] > 1 && familyName == nil) {
-            [nameComponents removeLastObject];
-            familyName = [[NSFontFamily
-                    fontFamilyWithName:
-                            [nameComponents componentsJoinedByString: blank]]
-                    name];
-        }
-    }
-
-    // Fall back to using the font name - nil is not an option
-    if (familyName == nil) {
-        familyName = _name;
-    }
-    return familyName;
+    // OSXER TEXTEDIT LOOK (font identity): use the same resolved face as drawing.
+    NSString *family = [(NSString *) CTFontCopyFamilyName(_ctFont) autorelease];
+    return [family length] ? family : [self fontName];
 }
 
 - (NSString *) displayName {

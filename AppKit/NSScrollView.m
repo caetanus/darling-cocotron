@@ -43,6 +43,20 @@ NSString *const NSScrollViewDidEndLiveMagnifyNotification =
 NSString *const NSPreferredScrollerStyleDidChangeNotification =
         @"NSPreferredScrollerStyleDidChangeNotification";
 
+// OSXER TEXTEDIT LOOK (paginated documents): the text view can be inside a
+// document/page view. Prefer its inspector when it becomes first responder.
+static NSView *OSXERInspectorForDocument(NSView *view) {
+    if ([view respondsToSelector: @selector(_textInspectorBar)]) {
+        NSView *bar = [view performSelector: @selector(_textInspectorBar)];
+        if (bar) return bar;
+    }
+    for (NSView *child in [view subviews]) {
+        NSView *bar = OSXERInspectorForDocument(child);
+        if (bar) return bar;
+    }
+    return nil;
+}
+
 @implementation NSScrollView
 
 static Class _rulerViewClass = nil;
@@ -219,7 +233,7 @@ static Class _rulerViewClass = nil;
         [_horizontalScroller removeFromSuperview];
 }
 
-- (NSRect) insetBounds {
+- (NSRect) _borderInsetBounds {
     NSRect bounds = [self bounds];
 
     switch (_borderType) {
@@ -239,6 +253,16 @@ static Class _rulerViewClass = nil;
         break;
     }
 
+    return bounds;
+}
+
+// OSXER TEXTEDIT LOOK (inspector layout): reserve 29 pt above both rulers and
+// the scrolling document. The strip stays fixed while the document scrolls.
+- (NSRect) insetBounds {
+    NSRect bounds = [self _borderInsetBounds];
+    CGFloat height = [_textInspectorBar frame].size.height;
+    bounds.origin.y += height;
+    bounds.size.height = MAX(0, bounds.size.height - height);
     return bounds;
 }
 
@@ -434,6 +458,11 @@ static Class _rulerViewClass = nil;
 }
 
 - (void) dealloc {
+    // OSXER TEXTEDIT LOOK (memory): clear non-owning ruler back-references.
+    [_horizontalRuler setScrollView: nil];
+    [_verticalRuler setScrollView: nil];
+    [_documentCursor release];
+    [_textInspectorBar release];
     [_clipView release];
     [_verticalScroller release];
     [_horizontalScroller release];
@@ -553,6 +582,8 @@ static Class _rulerViewClass = nil;
 - (void) setVerticalRulerView: (NSRulerView *) ruler {
     ruler = [ruler retain];
     if (_verticalRuler) {
+        // OSXER TEXTEDIT LOOK (memory): an externally retained ruler can survive us.
+        [_verticalRuler setScrollView: nil];
         [_verticalRuler removeFromSuperview];
         [_verticalRuler release];
     }
@@ -569,6 +600,8 @@ static Class _rulerViewClass = nil;
 - (void) setHorizontalRulerView: (NSRulerView *) ruler {
     ruler = [ruler retain];
     if (_horizontalRuler) {
+        // OSXER TEXTEDIT LOOK (memory): an externally retained ruler can survive us.
+        [_horizontalRuler setScrollView: nil];
         [_horizontalRuler removeFromSuperview];
         [_horizontalRuler release];
     }
@@ -813,9 +846,11 @@ static Class _rulerViewClass = nil;
 }
 
 - (void) setDocumentCursor: (NSCursor *) cursor {
+    // OSXER TEXTEDIT LOOK (memory): preserve the cursor across replacement.
+    cursor = [cursor retain];
     [_clipView discardCursorRects];
     [_documentCursor release];
-    _documentCursor = [cursor retain];
+    _documentCursor = cursor;
     if (_documentCursor != nil)
         [_clipView addCursorRect: [_clipView bounds] cursor: _documentCursor];
 }
@@ -859,6 +894,27 @@ static Class _rulerViewClass = nil;
 
 - (void) tile {
     NSRect frame;
+    // OSXER TEXTEDIT LOOK (inspector lifecycle): also handles installation
+    // before the text view has an enclosing scroll view and document replacement.
+    NSView *document = [self documentView];
+    id responder = [[self window] firstResponder];
+    NSView *bar = nil;
+    if ([responder isKindOfClass: [NSView class]] && [responder isDescendantOf: document] &&
+        [responder respondsToSelector: @selector(_textInspectorBar)])
+        bar = [responder performSelector: @selector(_textInspectorBar)];
+    if (!bar) bar = OSXERInspectorForDocument(document);
+    if (bar != _textInspectorBar) {
+        [bar retain];
+        [_textInspectorBar removeFromSuperview];
+        [_textInspectorBar release];
+        _textInspectorBar = bar;
+        if (bar) [self addSubview: bar];
+    }
+    if (bar) {
+        frame = [self _borderInsetBounds];
+        frame.size.height = 29;
+        [bar setFrame: frame];
+    }
 
     [self createHeaderAndCornerViewsIfNeeded];
     [self createRulerViewsIfNeeded];

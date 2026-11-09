@@ -131,7 +131,7 @@
         // Put there the font name without the italic/bold.. attributes
         NSFont *plainFont =
                 [[NSFontManager sharedFontManager] convertFont: font
-                                                toNotHaveTrait: 0xFFFFFF];
+                                                toNotHaveTrait: NSBoldFontMask | NSItalicFontMask];
         NSString *fontName = [plainFont fontName];
         if (fontName && [fonts containsObject: fontName] == NO) {
             [fonts addObject: fontName];
@@ -180,10 +180,22 @@
         [self appendCString: "{\\fonttbl "];
         int i = 0;
         for (NSString *fontName in fonts) {
-            NSString *str =
-                    [NSString stringWithFormat: @"\\f%d\\fnil\\fcharset0 %@;",
-                                                i++, fontName];
+            // OSXER TEXTEDIT LOOK (RTF font table): group each face and escape
+            // delimiters/non-ASCII names using RTF's signed UTF-16 convention.
+            NSString *str = [NSString stringWithFormat: @"{\\f%d\\fnil\\fcharset0 ", i++];
             [self appendCString: [str UTF8String]];
+            for (NSUInteger j = 0; j < [fontName length]; j++) {
+                unichar c = [fontName characterAtIndex: j];
+                char escaped[16];
+                if (c < 32 || c > 126 || c == ';')
+                    snprintf(escaped, sizeof(escaped), "\\u%d?", (int)(int16_t)c);
+                else if (c == '\\' || c == '{' || c == '}')
+                    snprintf(escaped, sizeof(escaped), "\\%c", (char)c);
+                else
+                    snprintf(escaped, sizeof(escaped), "%c", (char)c);
+                [self appendCString: escaped];
+            }
+            [self appendCString: ";}"];
         }
         [self appendCString: "}"];
     }
@@ -206,7 +218,7 @@
         NSFont *font = [attributes objectForKey: NSFontAttributeName];
         NSFont *plainFont =
                 [[NSFontManager sharedFontManager] convertFont: font
-                                                toNotHaveTrait: 0xFFFFFF];
+                                                toNotHaveTrait: NSBoldFontMask | NSItalicFontMask];
         NSFontTraitMask traits =
                 [[NSFontManager sharedFontManager] traitsOfFont: font];
         NSColor *color =

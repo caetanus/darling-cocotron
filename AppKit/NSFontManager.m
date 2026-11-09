@@ -62,6 +62,13 @@ static Class _fontPanelFactory;
     return _delegate;
 }
 
+// OSXER TEXTEDIT LOOK (memory): balance init and setFontPanel: ownership.
+- (void) dealloc {
+    [_selectedFont release];
+    [_panel release];
+    [super dealloc];
+}
+
 - (SEL) action {
     return _action;
 }
@@ -497,6 +504,9 @@ static Class _fontPanelFactory;
     NSFontFamily *family = [NSFontFamily fontFamilyWithName: [font familyName]];
     NSFontTypeface *typeface = [family typefaceWithName: [font fontName]];
     NSFontTraitMask traits = [typeface traits];
+    // OSXER TEXTEDIT LOOK (font identity): a no-op conversion must preserve
+    // the exact face (e.g. Medium), not choose another member of its family.
+    if (!(traits & trait)) return font;
     traits &= ~trait; // remove the traits
     NSFontTypeface *newface;
 

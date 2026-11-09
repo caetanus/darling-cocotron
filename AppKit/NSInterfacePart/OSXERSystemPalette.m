@@ -183,7 +183,8 @@ static const OSXERPaletteEntry entries[] = {
     // dark-window.png (20,308)=#3D3D3D
     ENTRY("separatorLine", 0xDEDEDE, 1, 0x3D3D3D, 1),
     // dark-window.png (410,245)=#177BE5; fallback: slider accent; caret not visible in focused PNG
-    ENTRY("insertionPoint", 0x000000, 1, 0x177BE5, 1),
+    // OSXER TEXTEDIT LOOK (caret): light reference x4..5, y88..101 = #007AFF.
+    ENTRY("insertionPoint", 0x007AFF, 1, 0x177BE5, 1),
     // dark-window.png (547,283)=#1769E6
     ENTRY("busyFill", 0x007AFF, 1, 0x1769E6, 1),
     // dark-window.png (177,240)=#666666

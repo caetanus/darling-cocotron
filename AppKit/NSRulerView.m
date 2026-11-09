@@ -32,6 +32,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSStringDrawing.h>
 #import <AppKit/NSText.h>
 #import <AppKit/NSWindow.h>
+#import "NSInterfacePart/OSXERSystemPalette.h"
 
 #define DEFAULT_RULE_THICKNESS 16.0
 #define DEFAULT_MARKER_THICKNESS 15.0
@@ -87,7 +88,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
     [super initWithFrame: frame];
 
-    _scrollView = [scrollView retain];
+    // OSXER TEXTEDIT LOOK (memory): the scroll view owns its rulers.
+    _scrollView = scrollView;
     _orientation = orientation;
 
     _measurementUnit =
@@ -109,7 +111,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) dealloc {
-    [_scrollView release];
     [_accessoryView release];
     [_measurementUnit release];
 
@@ -191,8 +192,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) setScrollView: (NSScrollView *) scrollView {
-    [_scrollView release];
-    _scrollView = [scrollView retain];
+    // OSXER TEXTEDIT LOOK (memory): non-owning back-reference, as in init.
+    _scrollView = scrollView;
 
     [self invalidateHashMarks];
 }
@@ -207,15 +208,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) setAccessoryView: (NSView *) view {
+    // OSXER TEXTEDIT LOOK (memory): retain before replacing, even for self-assignment.
+    view = [view retain];
     [_accessoryView release];
-    _accessoryView = [view retain];
+    _accessoryView = view;
 
     [[self enclosingScrollView] tile];
 }
 
 - (void) setMarkers: (NSArray *) markers {
+    // OSXER TEXTEDIT LOOK (memory): markers may be our current array.
+    NSMutableArray *replacement = [markers mutableCopy];
     [_markers release];
-    _markers = [markers mutableCopy];
+    _markers = replacement;
 
     [[self enclosingScrollView] tile];
 }
@@ -233,9 +238,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) setMeasurementUnits: (NSString *) unitName {
+    // OSXER TEXTEDIT LOOK (memory): resolve while the old unit/name is alive.
+    NSMeasurementUnit *unit = [[NSMeasurementUnit measurementUnitNamed: unitName] retain];
     [_measurementUnit release];
-    _measurementUnit =
-            [[NSMeasurementUnit measurementUnitNamed: unitName] retain];
+    _measurementUnit = unit;
 
     [self invalidateHashMarks];
     [[self enclosingScrollView] tile];
@@ -333,7 +339,48 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                                           NSParagraphStyleAttributeName, nil];
 }
 
+// OSXER TEXTEDIT LOOK (ruler): reference y57..87 = 31 px, baseline
+// y71 (#BDBDBD), 72 px/inch, 1 px ticks, 8 pt labels; white background,
+// bottom separator #E6E6E6. Clip and scale with the tracked document.
+- (void) _drawBigSurHorizontalScale: (NSRect) dirtyRect {
+    CGFloat scale = [self _drawingScale];
+    CGFloat unit = [_measurementUnit pointsPerUnit] * scale;
+    if (!isfinite(unit) || unit <= 0) return;
+    CGFloat origin = [self _drawingOrigin];
+    CGFloat baseline = MAX(0, [self bounds].size.height - 17);
+    NSColor *ink = OSXERDarkAppearance() ? [NSColor secondaryLabelColor]
+            : [NSColor colorWithCalibratedWhite: 189.0/255 alpha: 1];
+    [ink setFill];
+    NSRectFill(NSMakeRect(NSMinX(dirtyRect), baseline, NSWidth(dirtyRect), 1));
+    CGFloat divisions = 1;
+    for (NSNumber *step in [_measurementUnit stepDownCycle]) {
+        CGFloat candidate = 1.0 / [step doubleValue];
+        if (isfinite(candidate) && candidate > divisions && unit / candidate >= 4)
+            divisions = candidate;
+    }
+    NSInteger subdiv = MAX(1, (NSInteger)divisions);
+    CGFloat spacing = unit/subdiv;
+    NSInteger first = MAX(0, (NSInteger)floor((NSMinX(dirtyRect)-origin)/spacing));
+    NSInteger last = (NSInteger)ceil((NSMaxX(dirtyRect)-origin)/spacing);
+    NSDictionary *attributes = @{NSFontAttributeName: [NSFont systemFontOfSize: 8],
+        NSForegroundColorAttributeName: OSXERDarkAppearance() ? [NSColor secondaryLabelColor]
+            : [NSColor colorWithCalibratedWhite: 0.35 alpha: 1]};
+    for (NSInteger tick = first; tick <= last; tick++) {
+        CGFloat x = floor(origin + tick*spacing);
+        BOOL major = tick % subdiv == 0;
+        CGFloat height = major ? 10 : (tick % MAX(1,subdiv/2) == 0 ? 6 : 3);
+        [ink setFill];
+        NSRectFill(NSMakeRect(x, baseline, 1, height));
+        if (major) [[NSString stringWithFormat: @"%ld", (long)(tick/subdiv)]
+            drawAtPoint: NSMakePoint(x+2, baseline+4) withAttributes: attributes];
+    }
+}
+
 - (void) drawHashMarksAndLabelsInRect: (NSRect) dirtyRect {
+    if (OSXERBigSurEnabled() && _orientation == NSHorizontalRuler) {
+        [self _drawBigSurHorizontalScale: dirtyRect];
+        return;
+    }
     NSRect originalFrame = self.bounds; // The ruler area
 
     CGFloat scale = [self _drawingScale];
@@ -525,7 +572,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     NSRect rect = self.bounds;
 
     // Clear whole area.
-    [[NSColor windowBackgroundColor] setFill];
+    [(OSXERBigSurEnabled() && !OSXERDarkAppearance()
+            ? [NSColor whiteColor] : [NSColor windowBackgroundColor]) setFill];
     NSRectFill(dirtyRect);
 
     [[NSColor controlShadowColor] setStroke];
@@ -536,7 +584,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         rect.origin.x += rect.size.width - 1;
         rect.size.width = 1;
     }
-    NSFrameRect(rect);
+    [(OSXERBigSurEnabled() && !OSXERDarkAppearance()
+            ? [NSColor colorWithCalibratedWhite: 230.0/255 alpha: 1]
+            : [NSColor separatorColor]) setFill];
+    NSRectFill(rect);
 
     [self drawHashMarksAndLabelsInRect: dirtyRect];
 

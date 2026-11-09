@@ -45,7 +45,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 + (NSArray *) allFontFamilyNames {
-    NSMutableArray *result = [NSMutableArray new];
+    // OSXER TEXTEDIT LOOK (memory): enumeration does not transfer ownership.
+    NSMutableArray *result = [NSMutableArray array];
     NSArray *families = [self fontFamilies];
     int i, count = [families count];
 
@@ -222,7 +223,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     for (i = 0; i < count; i++) {
         NSFontTypeface *typeface = [_typefaces objectAtIndex: i];
 
-        if ([typeface traits] == traits)
+        // OSXER TEXTEDIT LOOK (B/I): Unbold/Unitalic are requests for the
+        // absence of a trait, not additional characteristics of a face.
+        NSFontTraitMask absence = NSUnboldFontMask | NSUnitalicFontMask;
+        if (([typeface traits] & ~absence) == (traits & ~absence))
             return typeface;
     }
 

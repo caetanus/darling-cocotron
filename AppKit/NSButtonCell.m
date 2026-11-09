@@ -477,6 +477,8 @@ static const CGFloat kImageMargin = 2.;
     result->_titleOrAttributedTitle = [_titleOrAttributedTitle copy];
     result->_alternateTitle = [_alternateTitle copy];
     result->_alternateImage = [_alternateImage retain];
+    // OSXER TEXTEDIT LOOK (memory): each copy releases its normal image too.
+    result->_normalImage = [_normalImage retain];
     result->_keyEquivalent = [_keyEquivalent copy];
     result->_sound = [_sound retain];
     result->_keyEquivalentFont = [_keyEquivalentFont retain];

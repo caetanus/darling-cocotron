@@ -80,6 +80,7 @@ include_directories(
 )
 
 set(AppKit_sources
+	NSTextView.subproj/NSTextInspectorBar.m # OSXER TEXTEDIT LOOK (inspector)
 	NSComboBox.m
 	NSComboBoxCell.m
 	NSWindowScripting.m

@@ -183,6 +183,26 @@ out:
 + (FcPattern *) copyScalablePattern: (NSString *) pattern {
     FcConfig *config = O2FontSharedFontConfig();
 
+    // OSXER TEXTEDIT LOOK (font identity): public PostScript names identify a
+    // face, not a family. Try an exact installed face before alias substitution.
+    FcPattern *exact = FcPatternCreate();
+    if (exact) FcPatternAddString(exact, FC_POSTSCRIPT_NAME,
+                                 (const FcChar8 *) [pattern UTF8String]);
+    FcObjectSet *properties = FcObjectSetBuild(FC_FILE, FC_INDEX, FC_SCALABLE,
+                                                FC_OUTLINE, NULL);
+    FcFontSet *faces = exact && properties ? FcFontList(config, exact, properties) : NULL;
+    FcPattern *found = NULL;
+    for (int i = 0; faces != NULL && i < faces->nfont; i++) {
+        if (O2FontconfigHasOutlines(faces->fonts[i])) {
+            found = FcPatternDuplicate(faces->fonts[i]);
+            break;
+        }
+    }
+    if (faces) FcFontSetDestroy(faces);
+    if (properties) FcObjectSetDestroy(properties);
+    if (exact) FcPatternDestroy(exact);
+    if (found) return found;
+
     FcPattern *pat = FcNameParse((unsigned char *) [pattern UTF8String]);
     if (pat == NULL)
         return NULL;
