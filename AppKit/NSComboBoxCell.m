@@ -20,6 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSButtonCell.h>
 #import <AppKit/NSComboBoxCell.h>
+#import <AppKit/NSComboBox.h>
 #import <AppKit/NSComboBoxWindow.h>
 #import <AppKit/NSGraphicsStyle.h>
 #import <AppKit/NSRaise.h>
@@ -298,6 +299,38 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return rect;
 }
 
+// OSXER TEXTEDIT LOOK R2 (combo selection): commit the popup value even when
+// no field editor is active; publish the value before notification/action.
+// https://developer.apple.com/documentation/appkit/nscombobox/selectiondidchangenotification
+- (void) _commitPopupSelection: (NSInteger) selectedIndex inView: (NSControl *) controlView {
+    if (![self isEnabled] || selectedIndex < 0 || selectedIndex >= [_objectValues count]) return;
+    // Observers/actions may remove the control or replace its cell (MRC).
+    [[self retain] autorelease];
+    [[controlView retain] autorelease];
+    NSTextView *editor = nil;
+    if ([[controlView currentEditor] isKindOfClass:[NSTextView class]]) {
+        editor = (NSTextView*)[controlView currentEditor];
+    }
+
+    id object = [_objectValues objectAtIndex: selectedIndex];
+    NSInteger previous = [self indexOfSelectedItem];
+    [self setObjectValue: object];
+    if (editor) {
+        NSString *formatted = [_formatter stringForObjectValue: object];
+        if (!formatted && [object isKindOfClass: [NSAttributedString class]] && [editor isRichText])
+            [[editor textStorage] setAttributedString: object];
+        else
+            [editor setString: formatted ?: [self stringValue]];
+        [editor setSelectedRange: NSMakeRange(0, [[editor string] length])];
+    }
+
+    [controlView setNeedsDisplay: YES];
+    if (previous != selectedIndex)
+        [[NSNotificationCenter defaultCenter] postNotificationName: NSComboBoxSelectionDidChangeNotification
+                                                            object: controlView];
+    [controlView sendAction: [controlView action] to: [controlView target]];
+}
+
 - (BOOL) trackMouse: (NSEvent *) event
               inRect: (NSRect) cellFrame
               ofView: (NSView *) controlView
@@ -311,7 +344,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     NSUInteger selectedIndex =
             [_objectValues indexOfObject: [self objectValue]];
 
-    if ([_objectValues count] == 0)
+    if (![self isEnabled] || [_objectValues count] == 0)
         return NO;
 
     if (!NSMouseInRect(check, [self buttonRectForBounds: cellFrame],
@@ -336,51 +369,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [window close]; // release when closed=YES
     _buttonPressed = NO;
 
-    if (selectedIndex != NSNotFound) {
-        NSTextView *editor = nil;
-        if ([[controlView currentEditor] isKindOfClass:[NSTextView class]]) {
-            editor = (NSTextView*)[controlView currentEditor];
-        }
-        
-        NSObject *object = [_objectValues objectAtIndex: selectedIndex];
-        if (editor && object) {
-            NSString *string = nil;
-            NSAttributedString *attstr = nil;
-
-            if (_formatter)
-                string = [_formatter stringForObjectValue: object];
-
-            if (!string)
-                if ([object isKindOfClass: [NSString class]])
-                    string = (NSString*)object;
-                else if ([object isKindOfClass: [NSAttributedString class]])
-                    if ([editor isRichText])
-                        attstr = (NSAttributedString*)object;
-                    else
-                        string = [object string];
-                else if ([object respondsToSelector: @selector
-                                 (descriptionWithLocale:)])
-                    string = [object
-                            descriptionWithLocale: [NSLocale currentLocale]];
-                else if ([object respondsToSelector: @selector(description)])
-                    string = [object description];
-                else
-                    string = @"";
-
-            if (attstr)
-                [[(NSTextView *) editor textStorage]
-                        setAttributedString: attstr];
-            else
-                [editor setString: string];
-
-            [editor setSelectedRange: NSMakeRange(0, [[editor string] length])];
-            [self endEditing: editor];
-            if (_sendsActionOnEndEditing)
-                [(NSControl *) controlView
-                        sendAction: [(NSControl *) controlView action]
-                                to: [(NSControl *) controlView target]];
-        }
-    }
+    [self _commitPopupSelection: selectedIndex inView: (NSControl *) controlView];
 
     return YES;
 }

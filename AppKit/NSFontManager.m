@@ -28,6 +28,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSNibLoading.h>
 #import <AppKit/NSRaise.h>
 
+// OSXER TEXTEDIT LOOK R2 (font resizing): AppKit-private, no public API change.
+@interface NSFont (NSFontManagerSizing)
+- (NSFont *) _fontWithSize: (CGFloat) size;
+@end
+
 @implementation NSFontManager
 
 static Class _fontManagerFactory;
@@ -432,7 +437,7 @@ static Class _fontPanelFactory;
     if (size == [font pointSize])
         return font;
 
-    return [NSFont fontWithName: [font fontName] size: size];
+    return [font _fontWithSize: size];
 }
 
 - (BOOL) _canConvertFont: (NSFont *) font

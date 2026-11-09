@@ -616,6 +616,13 @@ static NSLock *_cacheLock = nil;
     return _pointSize;
 }
 
+// OSXER TEXTEDIT LOOK R2 (font resizing): preserve the original face/family
+// request when changing only size. Recreating from the substitute's PostScript
+// name loses a missing family such as Helvetica. Factory ownership remains +0.
+- (NSFont *) _fontWithSize: (CGFloat) size {
+    return [NSFont fontWithName: _name size: size];
+}
+
 - (NSString *) fontName {
     // OSXER TEXTEDIT LOOK (font identity): report the resolved face's PostScript
     // name, never the fontconfig request (which may contain an entire pattern).

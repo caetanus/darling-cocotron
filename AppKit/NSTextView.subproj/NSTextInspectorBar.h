@@ -10,6 +10,9 @@
     NSSegmentedControl *_alignment;
     NSInteger _fontOperation;
     BOOL _removeTrait;
+    // OSXER TEXTEDIT LOOK R2 (size commit): focus changes can reenter action.
+    BOOL _changingSize;
+    CGFloat _fontSize;
 }
 - (id) initWithTextView: (NSTextView *) view;
 - (void) syncSelection;

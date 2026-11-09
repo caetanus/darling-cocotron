@@ -11,6 +11,52 @@
 
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #c); exit(1); } } while (0)
 
+// OSXER TEXTEDIT LOOK R2 (regression): drive the commit boundary used by native
+// popup tracking, without automating another application's windows.
+// https://developer.apple.com/documentation/appkit/nscombobox/selectiondidchangenotification
+@interface NSComboBoxCell (InspectorRegression)
+- (void) _commitPopupSelection: (NSInteger) index inView: (NSControl *) view;
+- (NSRect) buttonRectForBounds: (NSRect) bounds;
+@end
+@interface ComboObserver : NSObject { @public NSInteger notifications, actions; }
+- (void) selectionChanged: (NSNotification *) note;
+- (void) changed: (NSComboBox *) combo;
+@end
+@implementation ComboObserver
+- (void) selectionChanged: (NSNotification *) note {
+    CHECK([[note object] indexOfSelectedItem] == 1);
+    CHECK([[[note object] objectValue] isEqual: @"18"]);
+    CHECK([note userInfo] == nil);
+    notifications++;
+}
+- (void) changed: (NSComboBox *) combo {
+    CHECK([[combo objectValue] isEqual: @"18"]);
+    CHECK(notifications == 1); // value + notification must precede target/action
+    actions++;
+}
+@end
+static void checkComboSelection(void) {
+    NSComboBox *combo = [[NSComboBox alloc] initWithFrame: NSMakeRect(0,0,80,22)];
+    [combo addItemsWithObjectValues: @[@"12", @"18"]];
+    [combo selectItemAtIndex: 0];
+    ComboObserver *observer = [ComboObserver new];
+    [combo setTarget: observer]; [combo setAction: @selector(changed:)];
+    [[NSNotificationCenter defaultCenter] addObserver: observer selector: @selector(selectionChanged:)
+        name: NSComboBoxSelectionDidChangeNotification object: combo];
+    CHECK(![combo currentEditor]);
+    [[combo cell] _commitPopupSelection: 1 inView: combo];
+    CHECK(observer->notifications == 1 && observer->actions == 1);
+    [[combo cell] _commitPopupSelection: -1 inView: combo];
+    [[combo cell] _commitPopupSelection: NSNotFound inView: combo];
+    [[combo cell] _commitPopupSelection: 2 inView: combo];
+    [combo setEnabled: NO];
+    [[combo cell] _commitPopupSelection: 0 inView: combo];
+    CHECK([combo indexOfSelectedItem] == 1);
+    CHECK(observer->notifications == 1 && observer->actions == 1);
+    [[NSNotificationCenter defaultCenter] removeObserver: observer];
+    [combo release]; [observer release];
+}
+
 @interface LookTextView : NSTextView { NSUndoManager *_testUndo; }
 @end
 @implementation LookTextView
@@ -41,6 +87,7 @@ static NSParagraphStyle *styleAt(NSTextView *v, NSUInteger index) {
 int main(void) {
     NSAutoreleasePool *pool = [NSAutoreleasePool new];
     [NSApplication sharedApplication];
+    checkComboSelection();
     NSFontManager *fm = [NSFontManager sharedFontManager];
     // A legacy fontconfig request must not become an NSFont name or an RTF face.
     NSFont *font = [NSFont fontWithName: @"Noto Sans:style=Regular" size: 12];
@@ -89,6 +136,24 @@ int main(void) {
     [scroll setFrameSize: NSMakeSize(760,400)]; CHECK(NSWidth([bar frame]) == 760);
 
     NSPopUpButton *family = (id)control(bar,@"Font family");
+    // OSXER TEXTEDIT LOOK R2 (requested family): keep a missing plain family
+    // visible, while known PostScript/fontconfig requests show resolved family.
+    CHECK([[family titleOfSelectedItem] isEqual: [font familyName]]);
+    NSFont *helvetica = [NSFont fontWithName: @"Helvetica" size: 12];
+    [text setFont: helvetica];
+    [text setSelectedRange: NSMakeRange(6,0)]; [text setSelectedRange: NSMakeRange(0,5)];
+    CHECK([[family titleOfSelectedItem] isEqual: @"Helvetica"]);
+    NSFont *resizedHelvetica = [fm convertFont: helvetica toSize: 16];
+    CHECK([resizedHelvetica pointSize] == 16);
+    CHECK([[resizedHelvetica fontName] isEqual: [helvetica fontName]]);
+    [text setFont: resizedHelvetica];
+    CHECK([[family titleOfSelectedItem] isEqual: @"Helvetica"]);
+    [text setFont: font];
+    [text setSelectedRange: NSMakeRange(6,0)]; [text setSelectedRange: NSMakeRange(0,5)];
+    for (NSControl *c in [bar subviews]) {
+        CHECK(NSHeight([c frame]) == 18 && NSMinY([c frame]) == 5);
+        CHECK(NSMaxY([c frame]) == 23); // 5 top, 5 bottom before separator y28
+    }
     NSString *otherFamily = nil;
     for (NSString *candidate in [fm availableFontFamilies])
         if (![candidate isEqual: [font familyName]]) { otherFamily = candidate; break; }
@@ -104,10 +169,29 @@ int main(void) {
     invoke(face); CHECK([[fontAt(text,0) fontName] isEqual: selectedFace]); [selectedFace release];
     [text setFont: font]; [text setSelectedRange: NSMakeRange(0,5)];
     NSComboBox *size = (id)control(bar,@"Font size");
+    CHECK([[size stringValue] isEqual: @"12"] && [size isEditable]);
+    NSRect sizeText = [[size cell] titleRectForBounds: [size bounds]];
+    NSRect sizeButton = [[size cell] buttonRectForBounds: [size bounds]];
+    CHECK(NSWidth(sizeText) >= [@"12" sizeWithAttributes: @{NSFontAttributeName: [size font]}].width);
+    CHECK(NSWidth(sizeButton) == 14 && NSHeight(sizeButton) == 14);
+    CHECK(NSMaxX(sizeText) < NSMinX(sizeButton));
     [size setStringValue: @"18"]; invoke(size);
     CHECK([fontAt(text,0) pointSize] == 18 && [fontAt(text,6) pointSize] == 12);
-    [size setStringValue: @"-2"]; invoke(size); CHECK([fontAt(text,0) pointSize] == 18);
+    for (NSString *invalid in @[@"-2", @"0", @"10001", @"nan", @"inf", @"12junk", @""]) {
+        [size setStringValue: invalid]; invoke(size); CHECK([fontAt(text,0) pointSize] == 18);
+        CHECK([[size stringValue] isEqual: @"18"]);
+    }
+    // Exercise actual field-editor commit, including a fractional typed size.
+    [size selectText: nil];
+    NSText *editor = [size currentEditor]; CHECK(editor);
+    [editor setString: @"13.5"];
+    [size textDidEndEditing: [NSNotification notificationWithName: NSTextDidEndEditingNotification
+        object: editor userInfo: @{@"NSTextMovement": @(NSReturnTextMovement)}]];
+    CHECK([fontAt(text,0) pointSize] == 13.5 && [fontAt(text,6) pointSize] == 12);
+    [[size cell] _commitPopupSelection: 5 inView: size]; // 18, with no field editor
+    CHECK([fontAt(text,0) pointSize] == 18);
     NSButton *bold = (id)control(bar,@"Bold");
+    CHECK(![bold isBordered] && [[bold title] isEqual: @"B"]);
     [bold setState: NSOnState]; invoke(bold); CHECK([fm traitsOfFont: fontAt(text,0)] & NSBoldFontMask);
     [bold setState: NSOffState]; invoke(bold); CHECK(!([fm traitsOfFont: fontAt(text,0)] & NSBoldFontMask));
     NSButton *italic = (id)control(bar,@"Italic");
@@ -117,6 +201,28 @@ int main(void) {
     CHECK([[[text textStorage] attribute: NSUnderlineStyleAttributeName atIndex: 0 effectiveRange: NULL] intValue] == 1);
     [underline setState: NSOffState]; invoke(underline);
     CHECK(![[text textStorage] attribute: NSUnderlineStyleAttributeName atIndex: 0 effectiveRange: NULL]);
+
+    // OSXER TEXTEDIT LOOK R2 (selection state/swatches): follow the selection
+    // independently of the last button action, and remove transparent fills.
+    NSFont *boldItalic = [fm convertFont: boldFont toHaveTrait: NSItalicFontMask];
+    [[text textStorage] addAttributes: @{NSFontAttributeName: boldItalic, NSUnderlineStyleAttributeName: @1}
+                                range: NSMakeRange(0,5)];
+    [text setSelectedRange: NSMakeRange(6,5)];
+    CHECK(![bold state] && ![italic state] && ![underline state]);
+    [text setSelectedRange: NSMakeRange(0,5)];
+    CHECK([bold state] && [italic state] && [underline state]);
+    NSColorWell *background = (id)control(bar,@"Text background colour");
+    CHECK([[background color] alphaComponent] == 0);
+    [background setColor: [NSColor redColor]]; invoke(background);
+    CHECK([[[text textStorage] attribute: NSBackgroundColorAttributeName atIndex:0 effectiveRange:NULL]
+            isEqual: [NSColor redColor]]);
+    [background setColor: [NSColor clearColor]]; invoke(background);
+    CHECK(![[text textStorage] attribute: NSBackgroundColorAttributeName atIndex:0 effectiveRange:NULL]);
+    CHECK([[background color] alphaComponent] == 0);
+    NSPopUpButton *list = (id)control(bar,@"List");
+    CHECK([list isEnabled] && [[list titleOfSelectedItem] isEqual: @"None"]);
+    CHECK([list numberOfItems] == 9);
+    for (NSMenuItem *item in [list itemArray]) CHECK(![item isEnabled]);
 
     NSSegmentedControl *alignment = (id)control(bar,@"Alignment");
     [alignment setSelectedSegment: 2]; invoke(alignment);
@@ -139,7 +245,16 @@ int main(void) {
     NSRect firstLine = [layout lineFragmentRectForGlyphAtIndex: 0 effectiveRange: NULL];
     CHECK(firstLine.origin.x >= 20);
     NSPopUpButton *spacing = (id)control(bar,@"Line spacing");
-    [spacing selectItemAtIndex: 2]; invoke(spacing);
+    CHECK([[spacing titleOfSelectedItem] isEqual: @"1.0"]);
+    CHECK([spacing numberOfItems] == 5 && ![[spacing lastItem] isEnabled]);
+    for (NSString *value in @[@"1.0", @"1.15", @"1.5", @"2.0"]) {
+        [spacing selectItemWithTitle: value]; invoke(spacing);
+        CHECK(fabs([styleAt(text,0) lineHeightMultiple]-[value doubleValue]) < .0001);
+        CHECK(!styleAt(text,6) || [styleAt(text,6) lineHeightMultiple] == 0);
+        CHECK([[spacing titleOfSelectedItem] isEqual: value]);
+    }
+    [spacing selectItemWithTitle: @"Other…"]; invoke(spacing);
+    CHECK([styleAt(text,0) lineHeightMultiple] == 2.0); // never parse Other as 0
     [layout glyphRangeForTextContainer: [text textContainer]];
     NSRect doubleLine = [layout lineFragmentRectForGlyphAtIndex: 0 effectiveRange: NULL];
     CHECK(doubleLine.size.height >= firstLine.size.height*1.9);
