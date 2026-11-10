@@ -5,5 +5,8 @@
 
 @end
 
-@interface NSNibAXAttributeConnector : NSObject <NSCoding>
+// OSXER NIB (accessibility archive state)
+@interface NSNibAXAttributeConnector : NSNibConnector <NSCoding> {
+    id _attributeType, _attributeValue;
+}
 @end

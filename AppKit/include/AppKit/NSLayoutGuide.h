@@ -20,6 +20,16 @@
 #import <AppKit/AppKitExport.h>
 #import <Foundation/Foundation.h>
 
-@interface NSLayoutGuide : NSObject <NSCoding>
+// OSXER NIB (layout guides): the owner is nonretained, as with NSView's superview.
+@class NSView;
+@interface NSLayoutGuide : NSObject <NSCoding> {
+    NSString *_identifier;
+    NSView *_owningView;
+    NSArray *_osxerSystemConstraints;
+    BOOL _osxerLockedToOwner;
+}
+@property(copy) NSString *identifier;
+@property(assign) NSView *owningView;
+@property(readonly) NSRect frame;
 
 @end

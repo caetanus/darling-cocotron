@@ -93,6 +93,20 @@ static NSMutableDictionary *cellClassDictionary = nil;
         if (sel)
             [_aux setAction: sel];
         [_aux setTarget: [keyed decodeObjectForKey: @"NSControlTarget"]];
+        // OSXER NIB (control state): explicit modern keys override cell defaults.
+        if ([coder containsValueForKey:@"NSEnabled"]) [self setEnabled:[coder decodeBoolForKey:@"NSEnabled"]];
+        if ([coder containsValueForKey:@"NSControlContinuous"]) [self setContinuous:[coder decodeBoolForKey:@"NSControlContinuous"]];
+        if ([coder containsValueForKey:@"NSControlRefusesFirstResponder"]) [self setRefusesFirstResponder:[coder decodeBoolForKey:@"NSControlRefusesFirstResponder"]];
+        if ([coder containsValueForKey:@"NSControlTextAlignment"]) [self setAlignment:[coder decodeIntegerForKey:@"NSControlTextAlignment"]];
+        if ([coder containsValueForKey:@"NSControlLineBreakMode"]) [self setLineBreakMode:[coder decodeIntegerForKey:@"NSControlLineBreakMode"]];
+        if ([coder containsValueForKey:@"NSControlUsesSingleLineMode"]) [self setUsesSingleLineMode:[coder decodeBoolForKey:@"NSControlUsesSingleLineMode"]];
+        if ([coder containsValueForKey:@"NSControlWritingDirection"]) [_cell setBaseWritingDirection:[coder decodeIntegerForKey:@"NSControlWritingDirection"]];
+        // The cell's decoded font may be explicit. Changing control metrics must not replace it.
+        NSFont *decodedFont = [[_cell font] retain];
+        if ([coder containsValueForKey:@"NSControlSize"]) [_cell setControlSize:[coder decodeIntegerForKey:@"NSControlSize"]];
+        if ([coder containsValueForKey:@"NSControlSize2"]) [_cell setControlSize:[coder decodeIntegerForKey:@"NSControlSize2"]];
+        if (decodedFont) [_cell setFont:decodedFont];
+        [decodedFont release];
     } else {
         NSInteger version = [coder versionForClassName: @"NSControl"];
         NSLog(@"NSControl version is %ld\n", (long) version);
@@ -728,4 +742,9 @@ static NSMutableDictionary *cellClassDictionary = nil;
     [self abortEditing];
 }
 
+
+// OSXER APPKIT (send action on): documented on NSControl, stored by the cell.
+- (NSInteger) sendActionOn: (NSInteger) mask {
+    return [[self cell] sendActionOn: mask];
+}
 @end

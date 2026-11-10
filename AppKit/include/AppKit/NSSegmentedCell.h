@@ -20,11 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSActionCell.h>
 #import <AppKit/NSSegmentedControl.h>
 
-typedef enum {
-    NSSegmentSwitchTrackingSelectOne,
-    NSSegmentSwitchTrackingSelectAny,
-    NSSegmentSwitchTrackingMomentary
-} NSSegmentSwitchTracking;
+
 
 @interface NSSegmentedCell : NSActionCell {
     NSMutableArray *_segments;

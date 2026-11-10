@@ -43,6 +43,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSScrollView.h>
 #import <AppKit/NSTrackingArea.h>
 #import <AppKit/NSView.h>
+// OSXER NIB (layout guide ownership)
+#import <AppKit/NSLayoutGuide.h>
 #import <AppKit/NSViewBackingLayer.h>
 #import <AppKit/NSWindow-Private.h>
 #import <CoreGraphics/CGWindow.h>
@@ -79,6 +81,21 @@ const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPresentationOptio
 
 @synthesize identifier = _identifier;
 @synthesize translatesAutoresizingMaskIntoConstraints = _translatesAutoresizingMaskIntoConstraints;
+// OSXER NIB (layout guide ownership)
+- (NSArray *)layoutGuides { return _osxerLayoutGuides ? [[_osxerLayoutGuides copy] autorelease] : @[]; }
+- (void)addLayoutGuide:(NSLayoutGuide *)guide {
+    if (!guide || [_osxerLayoutGuides containsObject:guide]) return;
+    [guide retain];
+    [[guide owningView] removeLayoutGuide:guide];
+    if (!_osxerLayoutGuides) _osxerLayoutGuides = [NSMutableArray new];
+    [_osxerLayoutGuides addObject:guide]; [guide setOwningView:self];
+    [guide release];
+}
+- (void)removeLayoutGuide:(NSLayoutGuide *)guide {
+    if ([_osxerLayoutGuides containsObject:guide]) {
+        [guide setOwningView:nil]; [_osxerLayoutGuides removeObjectIdenticalTo:guide];
+    }
+}
 @synthesize appearance = _appearance;
 
 static BOOL NSViewLayersEnabled = YES;
@@ -201,6 +218,29 @@ typedef struct __VFlags {
     }
 }
 
+// OSXER NIB (shared view layout): also used by NSCustomView's initWithFrame path.
+- (void)_osxerDecodeLayoutWithCoder:(NSCoder *)coder {
+        // OSXER NIB (view layout): preserve metadata and the archived frame.
+        _translatesAutoresizingMaskIntoConstraints = ![coder decodeBoolForKey:@"NSDoNotTranslateAutoresizingMask"];
+        if (!_identifier) _identifier = [[coder decodeObjectForKey:@"NSReuseIdentifierKey"] copy];
+        NSSize hugging = [coder containsValueForKey:@"NSHuggingPriority"] ? [coder decodeSizeForKey:@"NSHuggingPriority"] : NSMakeSize(250, 250);
+        NSSize resistance = [coder containsValueForKey:@"NSAntiCompressionPriority"] ? [coder decodeSizeForKey:@"NSAntiCompressionPriority"] : NSMakeSize(750, 750);
+        _horizontalContentHuggingPriority = hugging.width;
+        _verticalContentHuggingPriority = hugging.height;
+        _horizontalContentCompressionResistancePriority = resistance.width;
+        _verticalContentCompressionResistancePriority = resistance.height;
+        for (NSLayoutGuide *guide in [coder decodeObjectForKey:@"NSViewLayoutGuides"]) [self addLayoutGuide:guide];
+        NSLayoutGuide *margins = [coder decodeObjectForKey:@"IBNSLayoutMarginsGuide"];
+        NSLayoutGuide *safeArea = [coder decodeObjectForKey:@"IBNSSafeAreaLayoutGuide"];
+        if (margins) [self addLayoutGuide:margins];
+        if (safeArea) [self addLayoutGuide:safeArea];
+        // During recursive decoding, item owners/superviews may still be initializing.
+        // Restore the stored relationship without running activation's ancestry validation.
+        _osxerConstraints = [[coder decodeObjectForKey:@"NSViewConstraints"] mutableCopy];
+        for (NSLayoutConstraint *constraint in _osxerConstraints) [constraint _osxerSetOwner:self];
+
+}
+
 - initWithCoder: (NSCoder *) coder {
     [super initWithCoder: coder];
 
@@ -284,7 +324,7 @@ typedef struct __VFlags {
         if ([keyed containsValueForKey: @"OSXERViewAlphaValue"])
             [self setAlphaValue: [keyed decodeDoubleForKey: @"OSXERViewAlphaValue"]];
 
-        // TODO: NSViewConstraints, NSViewLayoutGuides, ...
+        [self _osxerDecodeLayoutWithCoder:coder];
 
         _needsDisplay = YES;
         _invalidRectCount = 0;
@@ -454,6 +494,9 @@ typedef struct __VFlags {
     // OSXER APPKIT (constraint storage): detach before releasing the owner's list.
     [self removeConstraints:[self constraints]];
     [_osxerConstraints release];
+    // OSXER NIB (layout guide ownership): clear nonretained back-references.
+    for (NSLayoutGuide *guide in _osxerLayoutGuides) [guide setOwningView:nil];
+    [_osxerLayoutGuides release];
 
     // Do this first?
     [self _unbindAllBindings];
@@ -1294,11 +1337,11 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (void) didAddSubview: (NSView *) subview {
-    NSUnimplementedMethod();
+    // OSXER NIB (view lifecycle): subclass notification hook.
 }
 
 - (void) willRemoveSubview: (NSView *) subview {
-    NSUnimplementedMethod();
+    // OSXER NIB (view lifecycle): subclass notification hook.
 }
 
 - (void) setAutoresizesSubviews: (BOOL) flag {

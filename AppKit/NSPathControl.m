@@ -63,12 +63,13 @@
 }
 
 - (id<NSPathControlDelegate>) delegate; {
-    NSUnimplementedMethod();
-    return nil;
+    // OSXER NIB (path delegate)
+    return _delegate;
 }
 
 - (void) setDelegate: (id<NSPathControlDelegate>) delegate; {
-    NSUnimplementedMethod();
+    // OSXER NIB (path delegate)
+    _delegate = delegate;
 }
 
 - (void) setDraggingSourceOperationMask: (NSDragOperation) mask

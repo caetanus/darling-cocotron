@@ -25,18 +25,28 @@
 @interface NSRotationGestureRecognizer : NSGestureRecognizer
 @end
 
+// OSXER NIB (gesture configuration): decoding does not install event recognition.
 @implementation NSGestureRecognizer
-
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+@synthesize target = _target, delegate = _delegate, action = _action;
+@synthesize allowedTouchTypes = _allowedTouchTypes, enabled = _enabled;
+- (id)initWithTarget:(id)target action:(SEL)action {
+    if ((self = [super init])) { _target = target; _action = action; _enabled = YES; }
+    return self;
 }
-
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+- (id)initWithCoder:(NSCoder *)coder {
+    if ((self = [self initWithTarget:[coder decodeObjectForKey:@"NSGestureRecognizer.target"]
+        action:NSSelectorFromString([coder decodeObjectForKey:@"NSGestureRecognizer.action"])])) {
+        _delegate = [coder decodeObjectForKey:@"NSGestureRecognizer.delegate"];
+        _allowedTouchTypes = [coder decodeIntegerForKey:@"NSGestureRecognizer.allowedTouchTypes"];
+    }
+    return self;
 }
-
+- (void)encodeWithCoder:(NSCoder *)coder {
+    [coder encodeConditionalObject:_target forKey:@"NSGestureRecognizer.target"];
+    [coder encodeConditionalObject:_delegate forKey:@"NSGestureRecognizer.delegate"];
+    [coder encodeObject:NSStringFromSelector(_action) forKey:@"NSGestureRecognizer.action"];
+    [coder encodeInteger:_allowedTouchTypes forKey:@"NSGestureRecognizer.allowedTouchTypes"];
+}
 @end
 
 @implementation NSRotationGestureRecognizer

@@ -19,16 +19,24 @@
 
 #import <AppKit/NSLayoutGuide.h>
 
+#import <AppKit/NSView.h>
+
+// OSXER NIB (layout guides): archive state, with ownership managed by NSView.
 @implementation NSLayoutGuide
-
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+@synthesize identifier = _identifier, owningView = _owningView;
+- (id)initWithCoder:(NSCoder *)coder {
+    if ((self = [super init])) {
+        _identifier = [[coder decodeObjectForKey:@"NSLayoutGuideIdentifier"] copy];
+        _osxerLockedToOwner = [coder decodeBoolForKey:@"NSLayoutGuideLockedToOwningView"];
+        _osxerSystemConstraints = [[coder decodeObjectForKey:@"NSLayoutGuideSystemConstraints"] copy];
+    }
+    return self;
 }
-
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+- (void)encodeWithCoder:(NSCoder *)coder {
+    [coder encodeObject:_identifier forKey:@"NSLayoutGuideIdentifier"];
+    [coder encodeBool:_osxerLockedToOwner forKey:@"NSLayoutGuideLockedToOwningView"];
+    [coder encodeObject:_osxerSystemConstraints forKey:@"NSLayoutGuideSystemConstraints"];
 }
-
+- (NSRect)frame { return _osxerLockedToOwner ? [_owningView bounds] : NSZeroRect; }
+- (void)dealloc { [_identifier release]; [_osxerSystemConstraints release]; [super dealloc]; }
 @end

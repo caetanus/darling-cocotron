@@ -79,11 +79,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                             (long) column, 0, (unsigned long) [tableColumns count]];
     }
 
-    headerRect.size.width =
-            [[tableColumns objectAtIndex: column--] width] + spacing.width;
-    while (column >= 0)
-        headerRect.origin.x +=
-                [[tableColumns objectAtIndex: column--] width] + spacing.width;
+    // OSXER NIB (column visibility): share table column positions with header hit testing.
+    NSRect columnRect = [_tableView rectOfColumn:column];
+    if ([[tableColumns objectAtIndex:column] isHidden]) return NSZeroRect;
+    headerRect.origin.x = columnRect.origin.x;
+    headerRect.size.width = columnRect.size.width;
 
     return headerRect;
 }
@@ -113,6 +113,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
     for (i = 0; i < count; ++i) {
         NSTableColumn *column = [tableColumns objectAtIndex: i];
+        if ([column isHidden]) continue; // OSXER NIB (column visibility)
 
         columnRect.size.width = [column width] + spacing.width;
         [[column headerCell]
@@ -184,9 +185,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
                     newWidth = newPoint.x;
                     for (q = 0; q < _resizedColumn; ++q) {
-                        newWidth -= [[[_tableView tableColumns]
-                                objectAtIndex: q] width];
-                        newWidth -= [_tableView intercellSpacing].width;
+                        NSTableColumn *previous = [[_tableView tableColumns] objectAtIndex:q];
+                        if (![previous isHidden]) newWidth -= [previous width] + [_tableView intercellSpacing].width;
                     }
 
                     [resizingColumn setWidth: newWidth];

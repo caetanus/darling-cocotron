@@ -19,16 +19,19 @@
 
 #import <AppKit/NSPanGestureRecognizer.h>
 
+// OSXER NIB (pan configuration)
 @implementation NSPanGestureRecognizer
-
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+@synthesize buttonMask = _buttonMask, numberOfTouchesRequired = _numberOfTouchesRequired;
+- (id)initWithCoder:(NSCoder *)coder {
+    if ((self = [super initWithCoder:coder])) {
+        _buttonMask = [coder containsValueForKey:@"NSPanGestureRecognizer.buttonMask"] ? [coder decodeIntegerForKey:@"NSPanGestureRecognizer.buttonMask"] : 1;
+        _numberOfTouchesRequired = [coder containsValueForKey:@"NSPanGestureRecognizer.numberOfTouchesRequired"] ? [coder decodeIntegerForKey:@"NSPanGestureRecognizer.numberOfTouchesRequired"] : 1;
+    }
+    return self;
 }
-
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+- (void)encodeWithCoder:(NSCoder *)coder {
+    [super encodeWithCoder:coder];
+    [coder encodeInteger:_buttonMask forKey:@"NSPanGestureRecognizer.buttonMask"];
+    [coder encodeInteger:_numberOfTouchesRequired forKey:@"NSPanGestureRecognizer.numberOfTouchesRequired"];
 }
-
 @end

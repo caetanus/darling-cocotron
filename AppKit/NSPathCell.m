@@ -79,10 +79,12 @@
 - (void) setObjectValue: (id<NSCopying>) valueX {
     id value = (id) valueX;
 
-    if ([(id) value isKindOfClass: [NSURL class]])
-        [self setURL: (id) value];
-    else if ([(id) value isKindOfClass: [NSString class]])
-        [self setURL: [NSURL fileURLWithPath: (id) value]];
+    // OSXER NIB (path values): nil clears an empty archived cell.
+    if (!value || [(id)value isKindOfClass:[NSURL class]]) {
+        [self setURL:value]; return;
+    } else if ([(id)value isKindOfClass:[NSString class]]) {
+        [self setURL:[NSURL fileURLWithPath:value]]; return;
+    }
 
     [NSException raise: NSInvalidArgumentException
                 format: @"-[%@ %s] only accepts URL's and strings, class=%@",

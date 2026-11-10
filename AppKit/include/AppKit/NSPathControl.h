@@ -26,6 +26,8 @@
 @end
 
 @interface NSPathControl : NSControl {
+    // OSXER NIB (path delegate): nonretained outlet.
+    id<NSPathControlDelegate> _delegate;
 }
 
 - (NSPathStyle) pathStyle;

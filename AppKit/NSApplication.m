@@ -1414,6 +1414,11 @@ NSApplication *NSApp = nil;
 }
 
 - (void) terminate: sender {
+    // OSXER NIB (modal termination): inspect every active modal, including sheets.
+    for (NSModalSession session in _modalStack)
+        if ([[session modalWindow] preventsApplicationTerminationWhenModal]) return;
+    for (NSWindow *window in [self windows])
+        if ([[window attachedSheet] preventsApplicationTerminationWhenModal]) return;
     [[NSDocumentController sharedDocumentController]
             closeAllDocumentsWithDelegate: self
                       didCloseAllSelector: @selector

@@ -164,7 +164,12 @@ static inline id childOfItemAtIndex(NSOutlineView *self, id item,
 
         [self invalidateRowCache];
 
-        _outlineTableColumn = [[[self tableColumns] objectAtIndex: 0] retain];
+        // OSXER NIB (outline layout): an empty table is a valid archive.
+        _outlineTableColumn = [[[self tableColumns] firstObject] retain];
+        if ([coder containsValueForKey:@"NSOutlineViewIndentationPerLevelKey"]) [self setIndentationPerLevel:[coder decodeDoubleForKey:@"NSOutlineViewIndentationPerLevelKey"]];
+        if ([coder containsValueForKey:@"NSOutlineViewIndentationMarkerFollowsCellKey"]) [self setIndentationMarkerFollowsCell:[coder decodeBoolForKey:@"NSOutlineViewIndentationMarkerFollowsCellKey"]];
+        if ([coder containsValueForKey:@"NSOutlineViewAutoresizesOutlineColumnKey"]) [self setAutoresizesOutlineColumn:[coder decodeBoolForKey:@"NSOutlineViewAutoresizesOutlineColumnKey"]];
+        if ([coder containsValueForKey:@"NSOutlineViewAutosaveExpandedItemsKey"]) [self setAutosaveExpandedItems:[coder decodeBoolForKey:@"NSOutlineViewAutosaveExpandedItemsKey"]];
     } else {
         [NSException raise: NSInvalidArgumentException
                     format: @"-[%@ %s] is not implemented for coder %@",

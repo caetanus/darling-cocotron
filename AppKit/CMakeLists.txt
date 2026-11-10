@@ -149,6 +149,8 @@ set(AppKit_sources
 	nib.subproj/NSNibOutletConnector.m
 	# OSXER NIB (decoder)
 	nib.subproj/NSNibArchiveUnarchiver.m
+	# OSXER NIB (archive support classes)
+	nib.subproj/NSNibCompatibility.m
 	nib.subproj/NSNib.m
 	nib.subproj/NSWindowTemplate.m
 	nib.subproj/NSMenuTemplate.m

@@ -73,6 +73,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         _tag = [keyed decodeIntForKey: @"NSTag"];
         _hidden = [keyed decodeBoolForKey: @"NSIsHidden"];
         _image = [[coder decodeObjectForKey: @"NSImage"] retain];
+        // OSXER NIB (menu state)
+        if ([coder containsValueForKey:@"NSIsDisabled"]) [self setEnabled:![coder decodeBoolForKey:@"NSIsDisabled"]];
+        if ([coder containsValueForKey:@"NSHiddenInRepresentation"]) [self setHidden:[coder decodeBoolForKey:@"NSHiddenInRepresentation"]];
+        if ([coder containsValueForKey:@"NSState"]) [self setState:[coder decodeIntegerForKey:@"NSState"]];
+        if ([coder containsValueForKey:@"NSIndent"]) [self setIndentationLevel:[coder decodeIntegerForKey:@"NSIndent"]];
+        if ([coder containsValueForKey:@"NSIsAlternate"]) [self setAlternate:[coder decodeBoolForKey:@"NSIsAlternate"]];
+        if ([coder containsValueForKey:@"NSRepObject"]) [self setRepresentedObject:[coder decodeObjectForKey:@"NSRepObject"]];
+        if ([coder containsValueForKey:@"NSAttributedTitle"]) [self setAttributedTitle:[coder decodeObjectForKey:@"NSAttributedTitle"]];
+        if ([coder containsValueForKey:@"NSOnImage"]) [self setOnStateImage:[coder decodeObjectForKey:@"NSOnImage"]];
+        if ([coder containsValueForKey:@"NSMixedImage"]) [self setMixedStateImage:[coder decodeObjectForKey:@"NSMixedImage"]];
         if ([keyed decodeBoolForKey: @"NSIsSeparator"]) {
             [_title release];
             _title = nil;

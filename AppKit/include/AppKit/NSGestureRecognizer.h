@@ -20,5 +20,16 @@
 #import <AppKit/AppKitExport.h>
 #import <Foundation/Foundation.h>
 
-@interface NSGestureRecognizer : NSObject <NSCoding>
+// OSXER NIB (gesture configuration): nonretained target/delegate.
+@interface NSGestureRecognizer : NSObject <NSCoding> {
+    id _target, _delegate;
+    SEL _action;
+    NSUInteger _allowedTouchTypes;
+    BOOL _enabled;
+}
+@property(assign) id target, delegate;
+@property SEL action;
+@property NSUInteger allowedTouchTypes;
+@property(getter=isEnabled) BOOL enabled;
+- (id)initWithTarget:(id)target action:(SEL)action;
 @end

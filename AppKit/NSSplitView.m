@@ -48,6 +48,9 @@ NSString *const NSSplitViewWillResizeSubviewsNotification =
         NSKeyedUnarchiver *keyed = (NSKeyedUnarchiver *) coder;
 
         _isVertical = [keyed decodeBoolForKey: @"NSIsVertical"];
+        // OSXER NIB (split geometry)
+        if ([coder containsValueForKey:@"NSDividerStyle"]) [self setDividerStyle:[coder decodeIntegerForKey:@"NSDividerStyle"]];
+        if ([coder containsValueForKey:@"NSDelegate"]) [self setDelegate:[coder decodeObjectForKey:@"NSDelegate"]];
         // The divider thickness in the nib may not be the same as ours
         [self resizeSubviewsWithOldSize: [self bounds].size];
     } else {

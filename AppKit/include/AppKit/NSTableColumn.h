@@ -39,6 +39,7 @@ enum {
     CGFloat _maxWidth;
     BOOL _isResizable;
     BOOL _isEditable;
+    BOOL _hidden; // OSXER NIB (column visibility)
     NSUInteger _resizingMask;
     NSSortDescriptor *_sortDescriptorPrototype;
 }
@@ -55,6 +56,8 @@ enum {
 - (CGFloat) maxWidth;
 - (BOOL) isResizable;
 - (BOOL) isEditable;
+// OSXER NIB (column visibility)
+@property(getter=isHidden) BOOL hidden;
 - (NSUInteger) resizingMask;
 
 - (void) setTableView: (NSTableView *) tableView;

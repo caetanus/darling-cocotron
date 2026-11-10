@@ -50,6 +50,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         _maxWidth = [keyed decodeFloatForKey: @"NSMaxWidth"];
         _isResizable = [keyed decodeBoolForKey: @"NSIsResizeable"];
         _isEditable = [keyed decodeBoolForKey: @"NSIsEditable"];
+        _hidden = [coder decodeBoolForKey:@"NSHidden"]; // OSXER NIB (column visibility)
+        // OSXER NIB (table column metadata)
+        _headerToolTip = [[coder decodeObjectForKey:@"NSHeaderToolTip"] copy];
+        _sortDescriptorPrototype = [[coder decodeObjectForKey:@"NSSortDescriptorPrototype"] retain];
+        if ([coder containsValueForKey:@"NSResizingMask"]) _resizingMask = [coder decodeIntegerForKey:@"NSResizingMask"];
     } else {
         [NSException raise: NSInvalidArgumentException
                     format: @"-[%@ %s] is not implemented for coder %@",
@@ -179,6 +184,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) setEditable: (BOOL) flag {
     _isEditable = flag;
     [_dataCell setEditable: flag];
+}
+
+// OSXER NIB (column visibility): retain the configured width while hidden.
+- (BOOL)isHidden { return _hidden; }
+- (void)setHidden:(BOOL)hidden {
+    if (_hidden == hidden) return;
+    _hidden = hidden; [_tableView tile];
 }
 
 - (void) setResizingMask: (NSUInteger) value {

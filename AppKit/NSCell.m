@@ -265,6 +265,9 @@ NSNotificationName NSControlTintDidChangeNotification = @"NSControlTintDidChange
         id check;
 
         [self _applyAppleFlags: flags flags2: flags2];
+        // OSXER NIB (cell layout): explicit modern size precedes the font default.
+        if ([coder containsValueForKey:@"NSControlSize2"]) _controlSize = [coder decodeIntegerForKey:@"NSControlSize2"];
+        _identifier = [[coder decodeObjectForKey:@"NSCellIdentifier"] copy];
 
         _objectValue = [[keyed decodeObjectForKey: @"NSContents"] retain];
         check = [keyed decodeObjectForKey: @"NSNormalImage"];
@@ -526,6 +529,15 @@ NSNotificationName NSControlTintDidChangeNotification = @"NSControlTintDidChange
 
 - (BOOL) isBezeled {
     return _isBezeled;
+}
+
+// OSXER APPKIT (send action on): returns the previous mask; drag and periodic masks make the
+// cell continuous, which is what Cocotron's tracking honours.
+- (NSInteger) sendActionOn: (NSInteger) mask {
+    NSInteger previous = _osxerSendActionMask ? _osxerSendActionMask : NSLeftMouseUpMask;
+    _osxerSendActionMask = mask;
+    _isContinuous = (mask & (NSLeftMouseDraggedMask | NSPeriodicMask)) ? YES : NO;
+    return previous;
 }
 
 - (BOOL) isContinuous {

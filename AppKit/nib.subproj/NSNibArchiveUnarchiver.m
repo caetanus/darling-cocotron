@@ -317,7 +317,7 @@ static NSString *NibString(NibReader *r, NSUInteger length) {
                 initialized = [o->object initWithCoder: self];
             }
         }
-        if (!initialized) NibInvalid(@"class decoder returned nil");
+        if (!initialized) NibInvalid([NSString stringWithFormat: @"%@ -initWithCoder: returned nil", NSStringFromClass(cls)]);
         initialized = [initialized awakeAfterUsingCoder: self];
         id result = initialized;
         if ([_delegate respondsToSelector: @selector(unarchiver:didDecodeObject:)])

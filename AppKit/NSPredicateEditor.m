@@ -1,26 +1,14 @@
 #import <AppKit/NSPredicateEditor.h>
-#import <Foundation/NSRaise.h>
-
+#import <Foundation/Foundation.h>
+// OSXER NIB (predicate templates)
 @implementation NSPredicateEditor
-
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
-}
-
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
-}
-
-- (instancetype) initWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+@synthesize rowTemplates = _rowTemplates, predicate = _predicate;
+- (id)initWithCoder:(NSCoder *)coder {
+    if ((self = [super initWithCoder:coder])) {
+        _rowTemplates = [[coder decodeObjectForKey:@"NSPredicateTemplates"] copy];
+        _predicate = [[coder decodeObjectForKey:@"NSPredicateEditorPredicate"] retain];
+    }
     return self;
 }
-
-- (BOOL) _forceUseDelegate {
-    NSUnimplementedMethod();
-    return NO;
-}
-
+- (void)dealloc { [_rowTemplates release]; [_predicate release]; [super dealloc]; }
 @end

@@ -61,6 +61,10 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
 #import <AppKit/NSNib.h>
 #import <AppKit/NSTableCellView.h>
 
+// OSXER NIB (column visibility): hidden columns consume neither width nor spacing.
+static CGFloat OSXERNibColumnExtent(NSTableColumn *column, NSSize spacing) {
+    return [column isHidden] ? 0 : [column width] + spacing.width;
+}
 @implementation NSTableView
 
 - (id) _replacementKeyPathForBinding: (id) binding {
@@ -171,6 +175,13 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
         _allowsEmptySelection = (flags & 0x10000000) ? YES : NO;
         _allowsColumnSelection = (flags & 0x04000000) ? YES : NO;
         _intercellSpacing = NSMakeSize(3.0, 2.0);
+        // OSXER NIB (table geometry and style)
+        if ([coder containsValueForKey:@"NSIntercellSpacingWidth"]) _intercellSpacing.width = [coder decodeDoubleForKey:@"NSIntercellSpacingWidth"];
+        if ([coder containsValueForKey:@"NSIntercellSpacingHeight"]) _intercellSpacing.height = [coder decodeDoubleForKey:@"NSIntercellSpacingHeight"];
+        if ([coder containsValueForKey:@"NSTableViewSelectionHighlightStyle"]) [self setSelectionHighlightStyle:[coder decodeIntegerForKey:@"NSTableViewSelectionHighlightStyle"]];
+        if ([coder containsValueForKey:@"NSTableViewStyle"]) [self setStyle:[coder decodeIntegerForKey:@"NSTableViewStyle"]];
+        if ([coder containsValueForKey:@"NSDraggingSourceMaskForLocal"]) _localDraggingMask = [coder decodeIntegerForKey:@"NSDraggingSourceMaskForLocal"];
+        if ([coder containsValueForKey:@"NSDraggingSourceMaskForNonLocal"]) _externalDraggingMask = [coder decodeIntegerForKey:@"NSDraggingSourceMaskForNonLocal"];
         _selectedRowIndexes = [[NSIndexSet alloc] init];
         _selectedColumns = [[NSMutableArray alloc] init];
         _editedColumn = -1;
@@ -447,8 +458,7 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     rect.size.width = 0.;
     count = [_tableColumns count];
     for (i = 0; i < count; i++)
-        rect.size.width += [[_tableColumns objectAtIndex: i] width] +
-                           _intercellSpacing.width;
+        rect.size.width += OSXERNibColumnExtent([_tableColumns objectAtIndex: i], _intercellSpacing);
     rect.size.height = rowHeightAtIndex(self, row) + _intercellSpacing.height;
 
     return rect;
@@ -465,14 +475,13 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
                             (long) column, 0, (unsigned long) [_tableColumns count]];
     }
 
+    if ([[_tableColumns objectAtIndex:column] isHidden]) return NSZeroRect;
     rect.origin.x = 0.;
     for (i = 0; i < column; i++)
-        rect.origin.x += [[_tableColumns objectAtIndex: i] width] +
-                         _intercellSpacing.width;
+        rect.origin.x += OSXERNibColumnExtent([_tableColumns objectAtIndex: i], _intercellSpacing);
     rect.origin.y = 0.;
 
-    rect.size.width = [[_tableColumns objectAtIndex: column] width] +
-                      _intercellSpacing.width;
+    rect.size.width = OSXERNibColumnExtent([_tableColumns objectAtIndex: column], _intercellSpacing);
     rect.size.height = 0.;
     for (i = 0; i < numberOfRows; i++)
         rect.size.height +=
@@ -514,36 +523,19 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     return range; // returns 0,0 if not found, not NSNotFound
 }
 
+// OSXER NIB (column visibility): preserve public indexes when columns are hidden.
 - (NSRange) columnsInRect: (NSRect) rect {
-    NSRange range = NSMakeRange(0, 0);
-    NSInteger numberOfColumns = [self numberOfColumns];
-    NSInteger i;
-    CGFloat width = 0.;
-
-    for (i = 0; i < numberOfColumns; i++) {
-        width += [[_tableColumns objectAtIndex: i] width] +
-                 _intercellSpacing.width;
-
-        if (width > rect.origin.x)
-            break;
-    }
-    if (i < numberOfColumns) {
-        range.location = i;
-
-        for (; i < numberOfColumns; i++) {
-            if (width > rect.origin.x + rect.size.width)
-                break;
-
-            width += [[_tableColumns objectAtIndex: i] width] +
-                     _intercellSpacing.width;
+    NSUInteger first = NSNotFound, last = 0;
+    CGFloat x = 0;
+    for (NSUInteger i = 0; i < [_tableColumns count]; ++i) {
+        CGFloat width = OSXERNibColumnExtent([_tableColumns objectAtIndex:i], _intercellSpacing);
+        if (width > 0 && x + width > NSMinX(rect) && x <= NSMaxX(rect)) {
+            if (first == NSNotFound) first = i;
+            last = i;
         }
-        if (i < numberOfColumns)
-            range.length = i - range.location + 1;
-        else
-            range.length = numberOfColumns - range.location;
+        x += width;
     }
-
-    return range; // returns 0,0 if not found, not NSNotFound
+    return first == NSNotFound ? NSMakeRange(0, 0) : NSMakeRange(first, last - first + 1);
 }
 
 - (NSInteger) rowAtPoint: (NSPoint) point {
@@ -572,21 +564,20 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     NSRect frame;
     NSInteger i;
 
-    if (column < 0 || column > [self numberOfColumns] || row < 0 ||
-        row > [self numberOfRows])
+    if (column < 0 || column >= [self numberOfColumns] || row < 0 ||
+        row >= [self numberOfRows])
         return NSZeroRect;
 
+    if ([[_tableColumns objectAtIndex:column] isHidden]) return NSZeroRect;
     frame.origin.x = 0.;
     for (i = 0; i < column; i++)
-        frame.origin.x += [[_tableColumns objectAtIndex: i] width] +
-                          _intercellSpacing.width;
+        frame.origin.x += OSXERNibColumnExtent([_tableColumns objectAtIndex: i], _intercellSpacing);
 
     frame.origin.y = 0.;
     for (i = 0; i < row; i++)
         frame.origin.y += rowHeightAtIndex(self, i) + _intercellSpacing.height;
 
-    frame.size.width = [[_tableColumns objectAtIndex: column] width] +
-                       _intercellSpacing.width;
+    frame.size.width = OSXERNibColumnExtent([_tableColumns objectAtIndex: column], _intercellSpacing);
     frame.size.height = rowHeightAtIndex(self, row) + _intercellSpacing.height;
 
     return frame;
@@ -1320,6 +1311,7 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
 }
 - (NSView *)viewAtColumn:(NSInteger)column row:(NSInteger)row makeIfNecessary:(BOOL)make {
     if (row < 0 || row >= [self numberOfRows] || column < 0 || column >= [_tableColumns count]) return nil;
+    if ([[_tableColumns objectAtIndex:column] isHidden]) return nil; // OSXER NIB (column visibility)
     NSArray *key = @[@(row), @(column)];
     id view = [_osxerCellViews objectForKey:key];
     if (view) return view == [NSNull null] ? nil : view;
@@ -1366,7 +1358,8 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
         NSRange rows = [self rowsInRect:visible], columns = [self columnsInRect:visible];
         for (NSArray *key in [_osxerCellViews allKeys]) {
             NSInteger row = [[key objectAtIndex:0] integerValue], col = [[key objectAtIndex:1] integerValue];
-            if (!NSLocationInRange(row, rows) || !NSLocationInRange(col, columns) || row >= [self numberOfRows])
+            if (!NSLocationInRange(row, rows) || !NSLocationInRange(col, columns) || row >= [self numberOfRows] ||
+                col < 0 || col >= [_tableColumns count] || [[_tableColumns objectAtIndex:col] isHidden])
                 [self _osxerRecycleCellAtKey:key];
         }
         for (NSUInteger row = rows.location; row < NSMaxRange(rows) && row < [self numberOfRows]; ++row)
@@ -1418,12 +1411,13 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
 
     if ([clipView isKindOfClass: [NSClipView class]]) {
         NSSize size = [clipView bounds].size;
-        NSInteger i, count = [_tableColumns count];
+        // OSXER NIB (column visibility): size only visible columns.
+        NSMutableArray *visible = [NSMutableArray array];
+        for (NSTableColumn *column in _tableColumns) if (![column isHidden]) [visible addObject:column];
+        NSInteger i, count = [visible count];
         CGFloat lastWidth = size.width - (count * _intercellSpacing.width);
-        NSTableColumn *lastColumn = [_tableColumns lastObject];
-
-        for (i = 0; i < count - 1; ++i)
-            lastWidth -= [[_tableColumns objectAtIndex: i] width];
+        NSTableColumn *lastColumn = [visible lastObject];
+        for (i = 0; i < count - 1; ++i) lastWidth -= [[visible objectAtIndex:i] width];
 
         if (lastWidth > 0)
             [lastColumn setWidth: lastWidth];
@@ -1467,6 +1461,7 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
                               row: (NSInteger) row
 {
     NSTableColumn *column = [_tableColumns objectAtIndex: columnNumber];
+    if ([column isHidden]) return nil; // OSXER NIB (column visibility)
     NSCell *dataCell = [column dataCellForRow: row];
 
     [dataCell setControlView: self];
@@ -1686,8 +1681,7 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     CGFloat result = 0;
 
     for (i = 0; i < count; ++i)
-        result += [[_tableColumns objectAtIndex: i] width] +
-                  _intercellSpacing.width;
+        result += OSXERNibColumnExtent([_tableColumns objectAtIndex: i], _intercellSpacing);
 
     return result;
 }
@@ -1703,12 +1697,11 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     if (_autoresizesAllColumnsToFit) {
         CGFloat delta = [[self enclosingScrollView] contentSize].width -
                         [self _displayWidthOfColumns];
-        NSInteger i, count = [_tableColumns count];
-
-        for (i = 0; i < count; ++i) {
-            NSTableColumn *column = [_tableColumns objectAtIndex: i];
-            [column setWidth: [column width] + floor((delta / count))];
-        }
+        // OSXER NIB (column visibility)
+        NSUInteger count = 0;
+        for (NSTableColumn *column in _tableColumns) if (![column isHidden]) ++count;
+        for (NSTableColumn *column in _tableColumns)
+            if (![column isHidden]) [column setWidth:[column width] + floor(delta / count)];
 
     } else
         [self sizeLastColumnToFit];
@@ -2370,6 +2363,19 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     NSUnimplementedMethod();
 }
 
+
+// OSXER APPKIT (table style): Automatic resolves to Inset on macOS 11+ unless the table is
+// a source list (selection highlight style), as Apple documents.
+- (NSTableViewStyle) style { return _osxerStyle; }
+// Without a layout solver rows keep rowHeight / the delegate's heightOfRow:.
+- (BOOL) usesAutomaticRowHeights { return _osxerUsesAutomaticRowHeights; }
+- (void) setUsesAutomaticRowHeights: (BOOL) flag { _osxerUsesAutomaticRowHeights = flag; }
+- (void) setStyle: (NSTableViewStyle) style { _osxerStyle = style; }
+- (NSTableViewStyle) effectiveStyle {
+    if (_osxerStyle != NSTableViewStyleAutomatic) return _osxerStyle;
+    return [self selectionHighlightStyle] == NSTableViewSelectionHighlightStyleSourceList
+        ? NSTableViewStyleSourceList : NSTableViewStyleInset;
+}
 @end
 
 @implementation NSTableView (Bindings)

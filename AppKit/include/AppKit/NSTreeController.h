@@ -20,8 +20,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 @class NSIndexPath;
 
+// OSXER NIB (tree controller): decoded configuration; tree rearrangement is separate.
 @interface NSTreeController : NSObjectController <NSCoding, NSCopying> {
+    NSString *_childrenKeyPath, *_countKeyPath, *_leafKeyPath;
+    NSArray *_sortDescriptors;
+    BOOL _avoidsEmptySelection, _preservesSelection, _selectsInsertedObjects;
+    BOOL _alwaysUsesMultipleValuesMarker;
 }
+@property(copy) NSString *childrenKeyPath;
+@property(copy) NSString *countKeyPath;
+@property(copy) NSString *leafKeyPath;
+@property(copy) NSArray *sortDescriptors;
+@property BOOL avoidsEmptySelection, preservesSelection, selectsInsertedObjects;
+@property BOOL alwaysUsesMultipleValuesMarker;
+
 
 #if 0
 -content;

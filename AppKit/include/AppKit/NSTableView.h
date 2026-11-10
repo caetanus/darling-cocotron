@@ -77,7 +77,15 @@ typedef enum {
 
 @class NSNib;
 
+// OSXER APPKIT (table style): macOS 11 table styles; stored, drawing is unchanged.
+typedef NS_ENUM(NSInteger, NSTableViewStyle) {
+    NSTableViewStyleAutomatic = 0, NSTableViewStyleFullWidth, NSTableViewStyleInset,
+    NSTableViewStyleSourceList, NSTableViewStylePlain
+};
+
 @interface NSTableView : NSControl {
+    NSTableViewStyle _osxerStyle;
+    BOOL _osxerUsesAutomaticRowHeights;
     id _target;
     SEL _action;
     SEL _doubleAction;
@@ -266,6 +274,9 @@ typedef enum {
 
 - (NSArray *) sortDescriptors;
 - (void) setSortDescriptors: (NSArray *) value;
+@property NSTableViewStyle style;
+@property BOOL usesAutomaticRowHeights;
+@property(readonly) NSTableViewStyle effectiveStyle;
 @end
 
 @protocol NSTableViewDataSource <NSObject>

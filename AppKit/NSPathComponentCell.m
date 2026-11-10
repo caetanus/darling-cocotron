@@ -6,6 +6,13 @@
 
 @implementation NSPathComponentCell
 
+// OSXER NIB (keyed decoding)
+- (id)initWithCoder:(NSCoder *)coder {
+    if ((self = [super initWithCoder:coder])) [self setURL:[coder decodeObjectForKey:@"NSURL"]];
+    return self;
+}
+- (void)dealloc { [_URL release]; [super dealloc]; }
+
 - (NSURL *) URL {
     return _URL;
 }

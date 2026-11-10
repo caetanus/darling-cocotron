@@ -176,6 +176,10 @@ static const CGFloat kImageMargin = 2.;
                 [[keyed decodeObjectForKey: @"NSAlternateContents"] retain];
 
         [self _applyButtonCellAppleFlags: flags flags2: flags2];
+        // OSXER NIB (button appearance): explicit bezel and periodic timing.
+        if ([coder containsValueForKey:@"NSBezelStyle"]) [self setBezelStyle:[coder decodeIntegerForKey:@"NSBezelStyle"]];
+        if ([coder containsValueForKey:@"NSPeriodicDelay"]) _periodicDelay = [coder decodeDoubleForKey:@"NSPeriodicDelay"] / 1000.0;
+        if ([coder containsValueForKey:@"NSPeriodicInterval"]) _periodicInterval = [coder decodeDoubleForKey:@"NSPeriodicInterval"] / 1000.0;
 
         check = [keyed decodeObjectForKey: @"NSAlternateImage"];
         if ([check isKindOfClass: [NSImage class]])

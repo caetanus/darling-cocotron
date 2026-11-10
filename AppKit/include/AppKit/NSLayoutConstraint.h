@@ -26,8 +26,29 @@
 APPKIT_EXPORT const CGFloat NSViewNoInstrinsicMetric;
 APPKIT_EXPORT const CGFloat NSViewNoIntrinsicMetric;
 
+typedef NS_OPTIONS(NSUInteger, NSLayoutFormatOptions) {
+    NSLayoutFormatAlignAllLeft = 1 << NSLayoutAttributeLeft,
+    NSLayoutFormatAlignAllRight = 1 << NSLayoutAttributeRight,
+    NSLayoutFormatAlignAllTop = 1 << NSLayoutAttributeTop,
+    NSLayoutFormatAlignAllBottom = 1 << NSLayoutAttributeBottom,
+    NSLayoutFormatAlignAllLeading = 1 << NSLayoutAttributeLeading,
+    NSLayoutFormatAlignAllTrailing = 1 << NSLayoutAttributeTrailing,
+    NSLayoutFormatAlignAllCenterX = 1 << NSLayoutAttributeCenterX,
+    NSLayoutFormatAlignAllCenterY = 1 << NSLayoutAttributeCenterY,
+    NSLayoutFormatAlignAllLastBaseline = 1 << NSLayoutAttributeLastBaseline,
+    NSLayoutFormatAlignAllFirstBaseline = 1 << NSLayoutAttributeFirstBaseline,
+    NSLayoutFormatAlignAllBaseline = NSLayoutFormatAlignAllLastBaseline,
+    NSLayoutFormatAlignmentMask = 0xFFFF,
+    NSLayoutFormatDirectionLeadingToTrailing = 0 << 16,
+    NSLayoutFormatDirectionLeftToRight = 1 << 16,
+    NSLayoutFormatDirectionRightToLeft = 2 << 16,
+    NSLayoutFormatDirectionMask = 0x3 << 16,
+};
+
 // OSXER APPKIT (constraint storage): activation installs constraints on views; no solver.
 @interface NSLayoutConstraint (OSXERActivation)
++ (NSArray *)constraintsWithVisualFormat:(NSString *)format options:(NSLayoutFormatOptions)options
+                                 metrics:(NSDictionary *)metrics views:(NSDictionary *)views;
 @property(getter=isActive) BOOL active;
 + (void)activateConstraints:(NSArray *)constraints;
 + (void)deactivateConstraints:(NSArray *)constraints;

@@ -77,8 +77,12 @@ static NSAppleScrollBarVariant appleScrollBarVariant(NSScroller *self) {
 
     if ([coder allowsKeyedCoding]) {
         sFlags.isHoriz = (_bounds.size.width < _bounds.size.height) ? NO : YES;
-        _floatValue = 0;
-        _knobProportion = 0;
+        // OSXER NIB (scroller state)
+        [self setFloatValue:[coder decodeFloatForKey:@"NSCurValue"] knobProportion:[coder decodeDoubleForKey:@"NSPercent"]];
+        if ([coder containsValueForKey:@"NSControlTarget"]) _target = [coder decodeObjectForKey:@"NSControlTarget"];
+        else _target = [coder decodeObjectForKey:@"NSTarget"];
+        NSString *action = [coder decodeObjectForKey:@"NSControlAction"] ?: [coder decodeObjectForKey:@"NSAction"];
+        if (action) _action = NSSelectorFromString(action);
         [self checkSpaceForParts];
     } else {
         [NSException raise: NSInvalidArgumentException

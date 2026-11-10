@@ -20,6 +20,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSKeyedArchiver.h>
 #import <Foundation/NSString.h>
 
+// OSXER NIB (shared view layout)
+@interface NSView (OSXERNibLayout)
+- (void)_osxerDecodeLayoutWithCoder:(NSCoder *)coder;
+@end
 @implementation NSCustomView
 
 - (id) initWithCoder: (NSCoder *) coder {
@@ -38,6 +42,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                 frame.size = [coder decodeSizeForKey: @"NSFrameSize"];
 
             NSView *newView = [[class alloc] initWithFrame: frame];
+            // OSXER NIB (custom view cycles): publish replacement before decoding children.
+            if ([coder respondsToSelector:@selector(replaceObject:withObject:)])
+                [(id)coder replaceObject:self withObject:newView];
             if ([coder containsValueForKey: @"NSvFlags"]) {
                 unsigned vFlags = [coder decodeIntForKey: @"NSvFlags"];
 
@@ -72,6 +79,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
             [newView setLayerContentsRedrawPolicy:
                              [coder decodeIntegerForKey: @"NSViewLayerContentsR"
                                                          @"edrawPolicy"]];
+            // OSXER NIB (custom view layout)
+            [newView _osxerDecodeLayoutWithCoder:coder];
+            [newView setNextKeyView:[coder decodeObjectForKey:@"NSNextKeyView"]];
             [self release];
             return (NSCustomView*)newView;
         }

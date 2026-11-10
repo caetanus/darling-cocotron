@@ -344,10 +344,22 @@ NSBitmapImageRepPropertyKey NSImageCurrentFrame = @"NSImageCurrentFrame";
 
 - (instancetype) initWithCoder:(NSCoder *) coder {
     if ([coder allowsKeyedCoding]) {
-        [NSException raise: NSInvalidArgumentException
-                    format: @"-[%@ %s] is not implemented for coder %@",
-                            [self class], sel_getName(_cmd), coder];
-        return nil;
+        // OSXER APPKIT (nib images): nibs archive bitmap reps as NSTIFFRepresentation, an
+        // NSData object in NIBArchive files and raw bytes in older keyed archives.
+        NSData *data = nil;
+        @try { data = [coder decodeObjectForKey: @"NSTIFFRepresentation"]; }
+        @catch (NSException *e) { data = nil; }
+        if (![data isKindOfClass: [NSData class]]) {
+            NSUInteger length = 0;
+            const uint8_t *bytes = [coder decodeBytesForKey: @"NSTIFFRepresentation"
+                                             returnedLength: &length];
+            data = bytes ? [NSData dataWithBytes: bytes length: length] : nil;
+        }
+        if (data == nil) {
+            [self release];
+            return nil;
+        }
+        return [self initWithData: data];
     } else {
         NSInteger version = [coder versionForClassName: @"NSImageRep"];
 

@@ -148,6 +148,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [_cell _wasDrawnWithFrame: rect inView: self];
 }
 
+
+// OSXER APPKIT (segmented tracking): the control forwards tracking mode to its cell, as AppKit
+// documents (Transmission sets it from its nib).
+- (NSSegmentSwitchTracking) trackingMode {
+    return [_cell trackingMode];
+}
+
+- (void) setTrackingMode: (NSSegmentSwitchTracking) trackingMode {
+    [_cell setTrackingMode: trackingMode];
+}
 @end
 
 @implementation NSSegmentedControl (Bindings)

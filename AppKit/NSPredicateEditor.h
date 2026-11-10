@@ -1,5 +1,11 @@
 #import <AppKit/NSRuleEditor.h>
 
-@interface NSPredicateEditor : NSRuleEditor
+// OSXER NIB (predicate templates)
+@interface NSPredicateEditor : NSRuleEditor {
+    NSArray *_rowTemplates;
+    id _predicate;
+}
+@property(copy) NSArray *rowTemplates;
+@property(retain) id predicate;
 
 @end

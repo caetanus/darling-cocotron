@@ -31,6 +31,13 @@ enum {
 };
 typedef NSInteger NSSegmentStyle;
 
+// OSXER APPKIT (segmented tracking): declared here, as in Apple's headers.
+typedef enum {
+    NSSegmentSwitchTrackingSelectOne,
+    NSSegmentSwitchTrackingSelectAny,
+    NSSegmentSwitchTrackingMomentary
+} NSSegmentSwitchTracking;
+
 @interface NSSegmentedControl : NSControl
 
 - (NSInteger) segmentCount;
@@ -65,4 +72,6 @@ typedef NSInteger NSSegmentStyle;
 - (void) setSelected: (BOOL) flag forSegment: (NSInteger) segment;
 - (void) setSelectedSegment: (NSInteger) segment;
 
+- (NSSegmentSwitchTracking) trackingMode;
+- (void) setTrackingMode: (NSSegmentSwitchTracking) trackingMode;
 @end

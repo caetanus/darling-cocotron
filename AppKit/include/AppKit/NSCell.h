@@ -118,6 +118,7 @@ APPKIT_EXPORT NSNotificationName NSControlTintDidChangeNotification;
     NSLineBreakMode _lineBreakMode;
     NSBackgroundStyle _backgroundStyle;
     NSUInteger _cFlags; // required for Xcode
+    NSUInteger _osxerSendActionMask; // OSXER APPKIT (send action on): 0 = mouse up
     NSUserInterfaceItemIdentifier _identifier;
 
     BOOL _isEnabled;
@@ -182,6 +183,7 @@ APPKIT_EXPORT NSNotificationName NSControlTintDidChangeNotification;
 - (BOOL) isBordered;
 - (BOOL) isBezeled;
 - (BOOL) isContinuous;
+- (NSInteger) sendActionOn: (NSInteger) mask;
 - (BOOL) showsFirstResponder;
 - (BOOL) refusesFirstResponder;
 - (BOOL) isHighlighted;

@@ -66,7 +66,8 @@ NSString *NSTabColumnTerminatorsAttributeName =
 
 - (id) initWithCoder: (NSCoder *) aDecoder {
     if ((self = [super init])) {
-        if ([aDecoder isKindOfClass: [NSKeyedUnarchiver class]]) {
+        // OSXER NIB (keyed coder protocol): NIBArchive is an NSCoder, not NSKeyedUnarchiver.
+        if ([aDecoder allowsKeyedCoding]) {
             _type = [aDecoder decodeIntForKey: @"Type"];
             _location = [aDecoder decodeFloatForKey: @"Location"];
         } else {

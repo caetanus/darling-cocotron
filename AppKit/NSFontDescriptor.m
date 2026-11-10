@@ -56,6 +56,14 @@ const NSFontWeight NSFontWeightMedium = 0.23f;
 const NSFontWeight NSFontWeightRegular = 0;
 
 @implementation NSFontDescriptor : NSObject
+// OSXER NIB (font descriptors)
+- (id)initWithCoder:(NSCoder *)coder {
+    return [self initWithFontAttributes:[coder decodeObjectForKey:@"NSFontDescriptorAttributes"] ?: @{}];
+}
+- (void)encodeWithCoder:(NSCoder *)coder {
+    [coder encodeObject:_attributes forKey:@"NSFontDescriptorAttributes"];
+}
+
 
 - initWithFontAttributes: (NSDictionary *) attributes {
     _attributes = [attributes copy];

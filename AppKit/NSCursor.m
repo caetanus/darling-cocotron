@@ -190,8 +190,13 @@ static NSMutableArray *_cursorStack = nil;
 }
 
 - initWithCoder: (NSCoder *) coder {
-    // TODO: Need to implement
-    return self;
+    // OSXER NIB (cursors): image cursors preserve their hotspot. System cursor
+    // IDs have no public mapping here; use the standard arrow as a fallback.
+    NSImage *image = [coder decodeObjectForKey:@"NSImage"];
+    if (image) return [self initWithImage:image hotSpot:[coder decodePointForKey:@"NSHotSpot"]];
+    NSCursor *cursor = [NSCursor arrowCursor];
+    [self release];
+    return [cursor retain];
 }
 
 - (void) encodeWithCoder: (NSCoder *) coder {

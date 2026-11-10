@@ -21,6 +21,10 @@
 #import <Foundation/Foundation.h>
 #import <AppKit/NSGestureRecognizer.h>
 
-@interface NSPanGestureRecognizer : NSGestureRecognizer <NSCoding>
+// OSXER NIB (pan configuration)
+@interface NSPanGestureRecognizer : NSGestureRecognizer <NSCoding> {
+    NSUInteger _buttonMask, _numberOfTouchesRequired;
+}
+@property NSUInteger buttonMask, numberOfTouchesRequired;
 
 @end

@@ -204,6 +204,10 @@ static Class _rulerViewClass = nil;
             _drawsBackground = [_clipView drawsBackground];
         }
 
+        // OSXER NIB (scroll magnification): restore state before the first tile.
+        _minMagnification = [coder containsValueForKey:@"NSMinMagnification"] ? [coder decodeDoubleForKey:@"NSMinMagnification"] : 0.25;
+        _maxMagnification = [coder containsValueForKey:@"NSMaxMagnification"] ? [coder decodeDoubleForKey:@"NSMaxMagnification"] : 4.0;
+        _magnification = [coder containsValueForKey:@"NSMagnification"] ? [coder decodeDoubleForKey:@"NSMagnification"] : 1.0;
         _verticalLineScroll = 10.0; // the default value in IB is 10
         _verticalPageScroll = 10.0;
         _horizontalLineScroll = 10.0;
@@ -868,7 +872,8 @@ static Class _rulerViewClass = nil;
 
     if (_magnification < _minMagnification)
         _magnification = _minMagnification;
-    if (_magnification < _maxMagnification)
+    // OSXER NIB (scroll magnification): upper bound.
+    if (_magnification > _maxMagnification)
         _magnification = _maxMagnification;
 
     // TODO: calculate new bounds and call setBounds

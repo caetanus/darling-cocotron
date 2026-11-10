@@ -147,7 +147,41 @@ APPKIT_EXPORT const NSNotificationName NSWindowWillEnterFullScreenNotification;
 APPKIT_EXPORT const NSNotificationName NSWindowWillExitFullScreenNotification;
 APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification;
 
+// OSXER APPKIT (window styles): macOS 11 title bar options; stored, the theme draws as before.
+typedef NS_ENUM(NSInteger, NSWindowTitleVisibility) {
+    NSWindowTitleVisible = 0, NSWindowTitleHidden = 1
+};
+typedef NS_ENUM(NSInteger, NSWindowAnimationBehavior) {
+    NSWindowAnimationBehaviorDefault = 0, NSWindowAnimationBehaviorNone = 2,
+    NSWindowAnimationBehaviorDocumentWindow = 3, NSWindowAnimationBehaviorUtilityWindow = 4,
+    NSWindowAnimationBehaviorAlertPanel = 5
+};
+typedef NS_ENUM(NSInteger, NSWindowTabbingMode) {
+    NSWindowTabbingModeAutomatic = 0, NSWindowTabbingModePreferred, NSWindowTabbingModeDisallowed
+};
+@class NSAppearance, NSTitlebarAccessoryViewController;
+typedef NS_ENUM(NSInteger, NSWindowToolbarStyle) {
+    NSWindowToolbarStyleAutomatic = 0, NSWindowToolbarStyleExpanded, NSWindowToolbarStylePreference,
+    NSWindowToolbarStyleUnified, NSWindowToolbarStyleUnifiedCompact
+};
+typedef NS_ENUM(NSInteger, NSTitlebarSeparatorStyle) {
+    NSTitlebarSeparatorStyleAutomatic = 0, NSTitlebarSeparatorStyleNone,
+    NSTitlebarSeparatorStyleLine, NSTitlebarSeparatorStyleShadow
+};
+
 @interface NSWindow : NSResponder <NSUserInterfaceItemIdentification, NSAccessibility> {
+    NSWindowToolbarStyle _osxerToolbarStyle;
+    NSWindowTitleVisibility _osxerTitleVisibility;
+    NSWindowCollectionBehavior _osxerCollectionBehavior;
+    BOOL _osxerTitlebarAppearsTransparent, _osxerRestorable;
+    NSWindowAnimationBehavior _osxerAnimationBehavior;
+    NSWindowTabbingMode _osxerTabbingMode;
+    NSString *_osxerTabbingIdentifier;
+    Class _osxerRestorationClass;
+    NSAppearance *_osxerAppearance;
+    NSMutableArray *_osxerTitlebarAccessories;
+    NSTitlebarSeparatorStyle _osxerTitlebarSeparatorStyle;
+    NSString *_osxerSubtitle;
     NSRect _frame;
     NSWindowStyleMask _styleMask;
     NSBackingStoreType _backingType;
@@ -201,6 +235,8 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification;
 
     BOOL _acceptsMouseMovedEvents;
     BOOL _excludedFromWindowsMenu;
+    // OSXER NIB (modal termination): inherited by NSPanel.
+    BOOL _preventsApplicationTerminationWhenModal;
     BOOL _isDeferred;
     BOOL _dynamicDepthLimit;
     BOOL _canStoreColor;
@@ -255,6 +291,8 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification;
     BOOL _isAccessible;
 }
 
+// OSXER NIB (modal termination)
+@property BOOL preventsApplicationTerminationWhenModal;
 @property(class) BOOL allowsAutomaticWindowTabbing;
 
 + (NSWindowDepth) defaultDepthLimit;
@@ -598,6 +636,22 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification;
 // OSXER APPKIT (public compatibility)
 - (NSRect) convertRectToScreen: (NSRect) rect;
 - (NSRect) convertRectFromScreen: (NSRect) rect;
+@property NSWindowToolbarStyle toolbarStyle;
+@property NSWindowTitleVisibility titleVisibility;
+@property BOOL titlebarAppearsTransparent;
+@property(getter=isRestorable) BOOL restorable;
+@property(assign) Class restorationClass;
+@property NSWindowAnimationBehavior animationBehavior;
+@property NSWindowTabbingMode tabbingMode;
+@property(copy) NSString *tabbingIdentifier;
+@property(retain) NSAppearance *appearance;
+@property(readonly, retain) NSAppearance *effectiveAppearance;
+@property(readonly) NSRect contentLayoutRect;
+@property(copy) NSArray *titlebarAccessoryViewControllers;
+- (void) addTitlebarAccessoryViewController: (NSTitlebarAccessoryViewController *) controller;
+- (void) removeTitlebarAccessoryViewControllerAtIndex: (NSInteger) index;
+@property NSTitlebarSeparatorStyle titlebarSeparatorStyle;
+@property(copy) NSString *subtitle;
 @end
 
 @protocol NSWindowDelegate <NSObject>

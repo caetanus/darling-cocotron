@@ -624,7 +624,8 @@ static BOOL isStandardItemIdentifier(NSString *identifier) {
         _displayMode = [coder decodeIntForKey: @"NSToolbarDisplayMode"];
         _autosavesConfiguration =
                 [coder decodeBoolForKey: @"NSToolbarAutosavesConfiguration"];
-        _visible = YES;
+        // OSXER NIB (toolbar visibility)
+        _visible = ![coder containsValueForKey:@"NSToolbarPrefersToBeShown"] || [coder decodeBoolForKey:@"NSToolbarPrefersToBeShown"];
         _allowsUserCustomization =
                 [coder decodeBoolForKey: @"NSToolbarAllowsUserCustomization"];
         _isLoadingConfiguration = NO;

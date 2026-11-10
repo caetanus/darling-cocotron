@@ -208,6 +208,9 @@ NSInteger NSBitsPerPixelFromDepth(NSWindowDepth depth) {
 
 @implementation NSWindow
 
+// OSXER NIB (modal termination): public NSWindow property, defaults to YES.
+// https://developer.apple.com/documentation/appkit/nswindow/preventsapplicationterminationwhenmodal
+@synthesize preventsApplicationTerminationWhenModal = _preventsApplicationTerminationWhenModal;
 @synthesize identifier = _identifier;
 @synthesize accessibilityElement = _isAccessible;
 
@@ -322,6 +325,7 @@ static BOOL _allowsAutomaticWindowTabbing;
     _styleMask = styleMask;
     _backingType = backing;
     _isDeferred = defer;
+    _preventsApplicationTerminationWhenModal = YES; // OSXER NIB (modal termination)
 
     _frame = [self frameRectForContentRect: contentRect];
     _frame = [self constrainFrameRect: _frame toScreen: [NSScreen mainScreen]];
@@ -401,6 +405,10 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (void) dealloc {
+    [_osxerSubtitle release]; // OSXER APPKIT (window styles)
+    [_osxerTabbingIdentifier release];
+    [_osxerAppearance release];
+    [_osxerTitlebarAccessories release];
     // OSXER APPKIT (sheet queue): pending sheets must not retain a dead parent.
     for (NSDictionary *request in _osxerSheetQueue)
         ((NSWindow *)[request objectForKey:@"sheet"])->_osxerSheetParent = nil;
@@ -603,15 +611,6 @@ static BOOL _allowsAutomaticWindowTabbing;
 
 - (BOOL) isReleasedWhenClosed {
     return _releaseWhenClosed;
-}
-
-- (BOOL) preventsApplicationTerminationWhenModal {
-    NSUnimplementedMethod();
-    return NO;
-}
-
-- (void) setPreventsApplicationTerminationWhenModal: (BOOL) prevents {
-    NSUnimplementedMethod();
 }
 
 - (BOOL) hidesOnDeactivate {
@@ -1267,7 +1266,7 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (void) setCollectionBehavior: (NSWindowCollectionBehavior) behavior {
-    NSUnimplementedMethod();
+    _osxerCollectionBehavior = behavior; // OSXER APPKIT (window styles): stored
 }
 
 - (void) setLevel: (NSInteger) value {
@@ -1563,8 +1562,7 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (NSWindowCollectionBehavior) collectionBehavior {
-    NSUnimplementedMethod();
-    return 0;
+    return _osxerCollectionBehavior;
 }
 
 // OSXER APPKIT (screen coordinates): reuse the window's existing conversion.
@@ -3616,6 +3614,63 @@ static BOOL _allowsAutomaticWindowTabbing;
     _allowsAutomaticWindowTabbing = allowsAutomaticWindowTabbing;
 }
 
+
+// OSXER APPKIT (window styles): 10.10-11 window properties apps set from nibs and code.
+// Stored; the theme still draws a standard title bar, accessories are not shown.
+- (NSWindowTitleVisibility) titleVisibility { return _osxerTitleVisibility; }
+- (void) setTitleVisibility: (NSWindowTitleVisibility) v { _osxerTitleVisibility = v; }
+- (BOOL) titlebarAppearsTransparent { return _osxerTitlebarAppearsTransparent; }
+- (void) setTitlebarAppearsTransparent: (BOOL) flag { _osxerTitlebarAppearsTransparent = flag; }
+- (BOOL) isRestorable { return _osxerRestorable; }
+- (void) setRestorable: (BOOL) flag { _osxerRestorable = flag; }
+- (Class) restorationClass { return _osxerRestorationClass; }
+- (void) setRestorationClass: (Class) cls { _osxerRestorationClass = cls; }
+- (NSWindowAnimationBehavior) animationBehavior { return _osxerAnimationBehavior; }
+- (void) setAnimationBehavior: (NSWindowAnimationBehavior) b { _osxerAnimationBehavior = b; }
+- (NSWindowTabbingMode) tabbingMode { return _osxerTabbingMode; }
+- (void) setTabbingMode: (NSWindowTabbingMode) mode { _osxerTabbingMode = mode; }
+- (NSString *) tabbingIdentifier { return _osxerTabbingIdentifier; }
+- (void) setTabbingIdentifier: (NSString *) identifier {
+    identifier = [identifier copy]; [_osxerTabbingIdentifier release]; _osxerTabbingIdentifier = identifier;
+}
+- (NSAppearance *) appearance { return _osxerAppearance; }
+- (void) setAppearance: (NSAppearance *) appearance {
+    [appearance retain]; [_osxerAppearance release]; _osxerAppearance = appearance;
+}
+- (NSAppearance *) effectiveAppearance {
+    return _osxerAppearance ? _osxerAppearance : [NSApp effectiveAppearance];
+}
+// Without a full-size content view the layout rect is the content rect, in window coordinates.
+- (NSRect) contentLayoutRect {
+    NSRect frame = [self contentRectForFrameRect: [self frame]];
+    frame.origin = [self convertScreenToBase: frame.origin];
+    return frame;
+}
+- (NSArray *) titlebarAccessoryViewControllers {
+    return _osxerTitlebarAccessories ? [[_osxerTitlebarAccessories copy] autorelease] : [NSArray array];
+}
+- (void) setTitlebarAccessoryViewControllers: (NSArray *) controllers {
+    [_osxerTitlebarAccessories release]; _osxerTitlebarAccessories = [controllers mutableCopy];
+}
+- (void) addTitlebarAccessoryViewController: (NSTitlebarAccessoryViewController *) controller {
+    if (!controller) return;
+    if (!_osxerTitlebarAccessories) _osxerTitlebarAccessories = [NSMutableArray new];
+    [_osxerTitlebarAccessories addObject: controller];
+}
+- (void) removeTitlebarAccessoryViewControllerAtIndex: (NSInteger) index {
+    if (index >= 0 && index < (NSInteger)[_osxerTitlebarAccessories count])
+        [_osxerTitlebarAccessories removeObjectAtIndex: index];
+}
+
+// OSXER APPKIT (window styles): stored for the app; the title bar is drawn by the theme.
+- (NSWindowToolbarStyle) toolbarStyle { return _osxerToolbarStyle; }
+- (void) setToolbarStyle: (NSWindowToolbarStyle) style { _osxerToolbarStyle = style; }
+- (NSTitlebarSeparatorStyle) titlebarSeparatorStyle { return _osxerTitlebarSeparatorStyle; }
+- (void) setTitlebarSeparatorStyle: (NSTitlebarSeparatorStyle) style { _osxerTitlebarSeparatorStyle = style; }
+- (NSString *) subtitle { return _osxerSubtitle ? _osxerSubtitle : @""; }
+- (void) setSubtitle: (NSString *) subtitle {
+    subtitle = [subtitle copy]; [_osxerSubtitle release]; _osxerSubtitle = subtitle;
+}
 @end
 
 @implementation NSWindow (Darling)

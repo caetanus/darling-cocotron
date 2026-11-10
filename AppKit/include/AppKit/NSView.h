@@ -86,6 +86,8 @@ APPKIT_EXPORT const NSNotificationName NSViewGlobalFrameDidChangeNotification;
 
 APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPresentationOptions;
 
+@class NSLayoutGuide;
+
 @interface NSView : NSResponder <NSAnimatablePropertyContainer, NSUserInterfaceItemIdentification, NSAppearanceCustomization> {
     NSRect _frame;
     NSRect _bounds;
@@ -143,12 +145,23 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
     CGFloat _alphaValue;
     BOOL _canDrawConcurrently;
     // OSXER APPKIT (constraint storage): retain metadata, keep frame layout.
+    // OSXER NIB (layout guide ownership)
+    NSMutableArray *_osxerLayoutGuides;
     NSMutableArray *_osxerConstraints;
     BOOL _osxerNeedsLayout;
 }
 
 @property(class, readonly) BOOL requiresConstraintBasedLayout;
 @property BOOL translatesAutoresizingMaskIntoConstraints;
+// OSXER NIB (layout guide ownership)
+@property(readonly, copy) NSArray *layoutGuides;
+- (void)addLayoutGuide:(NSLayoutGuide *)guide;
+- (void)removeLayoutGuide:(NSLayoutGuide *)guide;
+// OSXER NIB (layout priority declarations): implemented by NSView.
+- (NSLayoutPriority)contentHuggingPriorityForOrientation:(NSLayoutConstraintOrientation)orientation;
+- (void)setContentHuggingPriority:(NSLayoutPriority)priority forOrientation:(NSLayoutConstraintOrientation)orientation;
+- (NSLayoutPriority)contentCompressionResistancePriorityForOrientation:(NSLayoutConstraintOrientation)orientation;
+- (void)setContentCompressionResistancePriority:(NSLayoutPriority)priority forOrientation:(NSLayoutConstraintOrientation)orientation;
 
 + (NSView *) focusView;
 + (NSMenu *) defaultMenu;

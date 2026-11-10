@@ -449,30 +449,45 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
 
 - initWithCoder: (NSCoder *) coder {
     if ([coder allowsKeyedCoding]) {
-        NSKeyedUnarchiver *keyed = (NSKeyedUnarchiver *) coder;
-        NSUInteger length;
-        const unsigned char *tiff =
-                [keyed decodeBytesForKey: @"NSTIFFRepresentation"
-                          returnedLength: &length];
-        NSBitmapImageRep *rep;
-
-        if (tiff == NULL) {
-            [self release];
-            return nil;
-        }
-
-        rep = [NSBitmapImageRep
-                imageRepWithData: [NSData dataWithBytes: tiff length: length]];
-        if (rep == nil) {
-            [self release];
-            return nil;
-        }
-
+        // OSXER APPKIT (nib images): compiled nibs (keyed and NIBArchive) archive an image as
+        // NSSize ("{w, h}" or a size value) plus NSReps, an array of [type, rep] pairs whose
+        // rep is an NSImageRep (usually NSBitmapImageRep with NSTIFFRepresentation) or data.
+        // The old top-level NSTIFFRepresentation is still read. An image without usable reps
+        // stays an empty image, as on macOS: returning nil made the whole nib fail to load.
         _name = nil;
         _size = NSMakeSize(0, 0);
         _representations = [NSMutableArray new];
 
-        [_representations addObject: rep];
+        id size = nil;
+        @try { size = [coder decodeObjectForKey: @"NSSize"]; } @catch (NSException *e) { size = nil; }
+        if ([size isKindOfClass: [NSString class]])
+            _size = NSSizeFromString(size);
+        else if ([size isKindOfClass: [NSValue class]])
+            _size = [size sizeValue];
+        else if ([coder containsValueForKey: @"NSSize"])
+            _size = [coder decodeSizeForKey: @"NSSize"];
+
+        for (id entry in [coder decodeObjectForKey: @"NSReps"]) {
+            id rep = entry;
+            if ([entry isKindOfClass: [NSArray class]])
+                rep = [entry count] ? [entry lastObject] : nil;
+            if ([rep isKindOfClass: [NSData class]])
+                rep = [NSBitmapImageRep imageRepWithData: rep];
+            if ([rep isKindOfClass: [NSImageRep class]])
+                [_representations addObject: rep];
+        }
+
+        if ([_representations count] == 0 && [coder containsValueForKey: @"NSTIFFRepresentation"]) {
+            NSUInteger length = 0;
+            const unsigned char *tiff = [coder decodeBytesForKey: @"NSTIFFRepresentation"
+                                                  returnedLength: &length];
+            NSBitmapImageRep *rep = tiff ? [NSBitmapImageRep imageRepWithData:
+                    [NSData dataWithBytes: tiff length: length]] : nil;
+            if (rep) [_representations addObject: rep];
+        }
+
+        if (NSEqualSizes(_size, NSZeroSize) && [_representations count])
+            _size = [[_representations objectAtIndex: 0] size];
     } else {
         NSInteger version = [coder versionForClassName: @"NSImage"];
 

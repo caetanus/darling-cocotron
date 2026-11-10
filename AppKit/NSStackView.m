@@ -19,6 +19,11 @@
 
 #import <AppKit/NSStackView.h>
 
+// OSXER NIB (stack archive containers)
+@interface NSView (OSXERNibStackContainer)
+- (NSArray *)nonDroppedViews;
+@end
+
 // OSXER APPKIT (stack layout): arrange by frames; constraint priorities are not solved.
 @implementation NSStackView
 + (instancetype)stackViewWithViews:(NSArray *)views {
@@ -65,6 +70,23 @@
         _edgeInsets.left = [coder decodeDoubleForKey:@"OSXERStackLeft"];
         _edgeInsets.bottom = [coder decodeDoubleForKey:@"OSXERStackBottom"];
         _edgeInsets.right = [coder decodeDoubleForKey:@"OSXERStackRight"];
+        // OSXER NIB (stack layout): accept the NIBArchive keys as well as our older archives.
+        if ([coder containsValueForKey:@"NSStackViewSpacing"]) _spacing = [coder decodeDoubleForKey:@"NSStackViewSpacing"];
+        if ([coder containsValueForKey:@"NSStackViewOrientation"]) _orientation = [coder decodeIntegerForKey:@"NSStackViewOrientation"];
+        if ([coder containsValueForKey:@"NSStackViewAlignment"]) _alignment = [coder decodeIntegerForKey:@"NSStackViewAlignment"];
+        if ([coder containsValueForKey:@"NSStackViewdistribution"]) _distribution = [coder decodeIntegerForKey:@"NSStackViewdistribution"];
+        if ([coder containsValueForKey:@"NSStackViewEdgeInsets.top"]) _edgeInsets.top = [coder decodeDoubleForKey:@"NSStackViewEdgeInsets.top"];
+        if ([coder containsValueForKey:@"NSStackViewEdgeInsets.left"]) _edgeInsets.left = [coder decodeDoubleForKey:@"NSStackViewEdgeInsets.left"];
+        if ([coder containsValueForKey:@"NSStackViewEdgeInsets.bottom"]) _edgeInsets.bottom = [coder decodeDoubleForKey:@"NSStackViewEdgeInsets.bottom"];
+        if ([coder containsValueForKey:@"NSStackViewEdgeInsets.right"]) _edgeInsets.right = [coder decodeDoubleForKey:@"NSStackViewEdgeInsets.right"];
+        NSView *beginning = [coder decodeObjectForKey:@"NSStackViewBeginningContainer"];
+        NSView *middle = [coder decodeObjectForKey:@"NSStackViewMiddleContainer"];
+        NSView *end = [coder decodeObjectForKey:@"NSStackViewEndContainer"];
+        for (NSView *container in @[beginning ?: (id)[NSNull null], middle ?: (id)[NSNull null], end ?: (id)[NSNull null]]) {
+            if (![container respondsToSelector:@selector(nonDroppedViews)]) continue;
+            for (NSView *view in [container nonDroppedViews]) [self addArrangedSubview:view];
+        }
+        if (!_arrangedSubviews) _arrangedSubviews = [[self subviews] mutableCopy];
         [self setNeedsLayout:YES];
     }
     return self;

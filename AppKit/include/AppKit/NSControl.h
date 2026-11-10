@@ -129,6 +129,7 @@ APPKIT_EXPORT const NSNotificationName NSControlTextDidEndEditingNotification;
 - (void) sizeToFit;
 - (void) setNeedsDisplay;
 
+- (NSInteger) sendActionOn: (NSInteger) mask;
 @end
 
 @interface NSObject (NSControl_delegate)

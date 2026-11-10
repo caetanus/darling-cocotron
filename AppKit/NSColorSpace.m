@@ -28,6 +28,26 @@ NSString *const _NSColorCoreUICatalogNamePrefix =
 
 @implementation NSColorSpace
 
+// OSXER NIB (keyed decoding)
+- (id)initWithCoder:(NSCoder *)coder {
+    NSData *profile = [coder decodeObjectForKey:@"NSICC"];
+    NSInteger model = [coder decodeIntegerForKey:@"NSModel"];
+    // NSColorSpaceModel RGB=0, Gray=1, CMYK=2. CG's ICC alternate
+    // behavior supplies the supported device model when ICC is unsupported.
+    CGColorSpaceRef alternate = model == 1 ? CGColorSpaceCreateDeviceGray() :
+        model == 2 ? CGColorSpaceCreateDeviceCMYK() : CGColorSpaceCreateDeviceRGB();
+    CGColorSpaceRef space = NULL;
+    if ([profile length]) {
+        CGDataProviderRef provider = CGDataProviderCreateWithCFData((CFDataRef)profile);
+        space = CGColorSpaceCreateICCBased(CGColorSpaceGetNumberOfComponents(alternate), NULL, provider, alternate);
+        CGDataProviderRelease(provider);
+    }
+    self = [self initWithCGColorSpace:space ?: alternate];
+    if (space) CGColorSpaceRelease(space);
+    CGColorSpaceRelease(alternate);
+    return self;
+}
+
 + (NSColorSpace *) sRGBColorSpace {
     CGColorSpaceRef srgb = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
     NSColorSpace *colorSpace =

@@ -54,6 +54,8 @@ id _NSTabViewFloatingCell = nil;
                 [keyed decodeBoolForKey: @"NSAllowTruncatedLabels"];
         _drawsBackground = [keyed decodeBoolForKey: @"NSDrawsBackground"];
         _controlSize = (flags & 0x18000000) >> 27;
+        // OSXER NIB (tab appearance)
+        _font = [[coder decodeObjectForKey:@"NSFont"] retain];
         if (_font == nil)
             _font = [[NSFont boldSystemFontOfSize: 13 - _controlSize * 2]
                     retain];
