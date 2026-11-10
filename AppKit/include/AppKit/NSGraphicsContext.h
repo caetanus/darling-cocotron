@@ -100,6 +100,8 @@ typedef enum {
 // All windows belong to the process's main connection.
 - (NSInteger) contextID;
 
+// OSXER APPKIT (public compatibility)
+- (CGContextRef) CGContext;
 @end
 
 @interface NSGraphicsContext (QuartzDebugging)

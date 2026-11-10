@@ -35,6 +35,8 @@
 
 - (void) loadView;
 - (BOOL) isViewLoaded; // 10.10
+// OSXER APPKIT (controller lifecycle)
+- (void)viewDidDisappear;
 
 - (void) discardEditing;
 

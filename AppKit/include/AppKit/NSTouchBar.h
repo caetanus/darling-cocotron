@@ -28,8 +28,12 @@
     id<NSTouchBarDelegate> _delegate;
     NSArray *_defaultItemIdentifiers;
     NSMutableDictionary *_items;
+    // OSXER APPKIT (Touch Bar principal item)
+    NSTouchBarItemIdentifier _principalItemIdentifier;
 }
 
+// OSXER APPKIT (Touch Bar principal item)
+@property(copy) NSTouchBarItemIdentifier principalItemIdentifier;
 @property(assign) id<NSTouchBarDelegate> delegate;
 @property(copy) NSArray *defaultItemIdentifiers;
 @property(readonly, copy) NSArray *itemIdentifiers;

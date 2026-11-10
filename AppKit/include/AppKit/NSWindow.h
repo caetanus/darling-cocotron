@@ -162,6 +162,8 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification;
     NSMutableArray<NSWindow *> *_childWindows;
 
     NSString *_representedFilename;
+    // OSXER APPKIT (represented URL): retain non-file URLs as well.
+    NSURL *_representedURL;
     NSString *_title;
     NSString *_miniwindowTitle;
     NSImage *_miniwindowImage;
@@ -582,6 +584,9 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification;
 - (void) runToolbarCustomizationPalette: sender;
 - (void) toggleFullScreen: (id) sender;
 
+// OSXER APPKIT (public compatibility)
+- (NSRect) convertRectToScreen: (NSRect) rect;
+- (NSRect) convertRectFromScreen: (NSRect) rect;
 @end
 
 @protocol NSWindowDelegate <NSObject>

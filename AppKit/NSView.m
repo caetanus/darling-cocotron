@@ -186,8 +186,9 @@ typedef struct __VFlags {
         //[coder encodeObject: _backgroundFilters
         //             forKey: @"NSViewBackgroundFilters"];
         [coder encodeObject: _animations forKey: @"NSViewAnimations"];
-        //[coder encodeBool: _canDrawConcurrently
-        //           forKey: @"NSViewCanDrawConcurrently"];
+        // OSXER APPKIT (view state): preserve drawing state through coding.
+        [coder encodeBool: _canDrawConcurrently forKey: @"NSViewCanDrawConcurrently"];
+        [coder encodeDouble: _alphaValue forKey: @"OSXERViewAlphaValue"];
         [coder encodeBool: _wantsLayer forKey: @"NSViewIsLayerTreeHost"];
         [coder encodeInteger: _layerContentsRedrawPolicy
                       forKey: @"NSViewLayerContentsRedrawPolicy"];
@@ -203,6 +204,9 @@ typedef struct __VFlags {
 
     // TODO: decode this
     _translatesAutoresizingMaskIntoConstraints = YES;
+
+    // OSXER APPKIT (view state): old archives have fully opaque views.
+    _alphaValue = 1.0;
 
     if ([coder allowsKeyedCoding]) {
         NSKeyedUnarchiver *keyed = (NSKeyedUnarchiver *) coder;
@@ -273,6 +277,8 @@ typedef struct __VFlags {
 
         [self setCanDrawConcurrently:
                         [keyed decodeBoolForKey: @"NSViewCanDrawConcurrently"]];
+        if ([keyed containsValueForKey: @"OSXERViewAlphaValue"])
+            [self setAlphaValue: [keyed decodeDoubleForKey: @"OSXERViewAlphaValue"]];
 
         // TODO: NSViewConstraints, NSViewLayoutGuides, ...
 
@@ -405,6 +411,8 @@ typedef struct __VFlags {
 }
 
 - initWithFrame: (NSRect) frame {
+    // OSXER APPKIT (view state): public default opacity.
+    _alphaValue = 1.0;
     _frame = frame;
     _bounds.origin = NSMakePoint(0, 0);
     _bounds.size = frame.size;
@@ -439,6 +447,9 @@ typedef struct __VFlags {
 }
 
 - (void) dealloc {
+    // OSXER APPKIT (constraint storage): detach before releasing the owner's list.
+    [self removeConstraints:[self constraints]];
+    [_osxerConstraints release];
 
     // Do this first?
     [self _unbindAllBindings];
@@ -732,12 +743,14 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (CGFloat) alphaValue {
-    NSUnimplementedMethod();
-    return 0.;
+    // OSXER APPKIT (view state): compositing remains a separate renderer task.
+    return _alphaValue;
 }
 
 - (void) setAlphaValue: (CGFloat) alpha {
-    NSUnimplementedMethod();
+    // OSXER APPKIT (view state): clamp to the documented opacity range.
+    _alphaValue = MIN(1.0, MAX(0.0, alpha));
+    [self setNeedsDisplay: YES];
 }
 
 - (int) gState {
@@ -1565,14 +1578,29 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 
 - (void) removeFromSuperviewWithoutNeedingDisplay {
     NSView *removeFrom = _superview;
+    if (!removeFrom) return;
     NSWindow *window = [self window];
-
-    [self _deepResignFirstResponder];
-    [self _setSuperview: nil];
-    [self _setWindow: nil];
-
-    [removeFrom _removeViewWithoutDisplay: self];
-    [window _invalidateTrackingAreas];
+    // OSXER APPKIT (constraint lifetime): ancestors must not keep constraints
+    // referencing a removed subtree. Use public hooks, also used by NSStackView.
+    [self retain];
+    @try {
+        [removeFrom willRemoveSubview:self];
+        for (NSView *ancestor = removeFrom; ancestor; ancestor = [ancestor superview]) {
+            for (NSLayoutConstraint *constraint in [ancestor constraints]) {
+                id first = [constraint firstItem], second = [constraint secondItem];
+                if (([first isKindOfClass:[NSView class]] && [first isDescendantOf:self]) ||
+                    ([second isKindOfClass:[NSView class]] && [second isDescendantOf:self]))
+                    [ancestor removeConstraint:constraint];
+            }
+        }
+        [self _deepResignFirstResponder];
+        [self viewWillMoveToSuperview:nil];
+        [self _setSuperview:nil];
+        [self _setWindow:nil];
+        [removeFrom _removeViewWithoutDisplay:self];
+        [self viewDidMoveToSuperview];
+        [window _invalidateTrackingAreas];
+    } @finally { [self release]; }
 }
 
 - (void) viewWillMoveToSuperview: (NSView *) view {
@@ -2152,8 +2180,8 @@ static NSView *viewBeingPrinted = nil;
 }
 
 - (BOOL) canDrawConcurrently {
-    NSUnimplementedMethod();
-    return NO;
+    // OSXER APPKIT (concurrent drawing): permission, not a scheduling request.
+    return _canDrawConcurrently;
 }
 
 - (void) viewWillDraw {
@@ -2161,7 +2189,8 @@ static NSView *viewBeingPrinted = nil;
 }
 
 - (void) setCanDrawConcurrently: (BOOL) canDraw {
-    NSUnimplementedMethod();
+    // OSXER APPKIT (concurrent drawing): serial drawing is still permitted.
+    _canDrawConcurrently = canDraw;
 }
 
 - (void) _lockFocusInContext: (NSGraphicsContext *) context {

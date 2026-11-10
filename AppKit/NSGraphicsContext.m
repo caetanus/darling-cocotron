@@ -209,6 +209,9 @@ NSMutableArray *NSCurrentFocusStack() {
     return [[NSGraphicsContext currentContext] isDrawingToScreen];
 }
 
+// OSXER APPKIT (graphics context): modern name for the same lower-level object.
+- (CGContextRef) CGContext { return [self graphicsPort]; }
+
 - (CGContextRef) graphicsPort {
     return _graphicsPort;
 }

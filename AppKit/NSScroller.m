@@ -147,6 +147,11 @@ static NSAppleScrollBarVariant appleScrollBarVariant(NSScroller *self) {
     return _floatValue;
 }
 
+// OSXER APPKIT (scroller proportion): preserve the existing knob position.
+- (void) setKnobProportion:(CGFloat)proportion {
+    [self setFloatValue:[self floatValue] knobProportion:proportion];
+}
+
 - (CGFloat) knobProportion {
     return _knobProportion;
 }

@@ -19,5 +19,14 @@
 
 #import <AppKit/NSView.h>
 
-@interface NSTableCellView : NSView
+// OSXER APPKIT (table cell outlets): connections are populated by the nib loader.
+@class NSTextField, NSImageView;
+@interface NSTableCellView : NSView {
+    NSTextField *_textField;
+    NSImageView *_imageView;
+    id _objectValue;
+}
+@property(assign) IBOutlet NSTextField *textField;
+@property(assign) IBOutlet NSImageView *imageView;
+@property(retain) id objectValue;
 @end

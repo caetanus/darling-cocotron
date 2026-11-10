@@ -21,30 +21,57 @@
 #import "NSAnimationContext.h"
 #import <AppKit/NSRaise.h>
 
+// OSXER APPKIT (animation groups): no interpolation engine; the brief permits
+// synchronous changes and completion. Nesting is independent on each thread.
+#import <Foundation/Foundation.h>
+
+static NSMutableArray *OSXERAnimationStack(void) {
+    NSMutableDictionary *thread = [[NSThread currentThread] threadDictionary];
+    NSMutableArray *stack = [thread objectForKey:@"OSXERAnimationContexts"];
+    if (!stack) {
+        stack = [NSMutableArray arrayWithObject:[[[NSAnimationContext alloc] init] autorelease]];
+        [thread setObject:stack forKey:@"OSXERAnimationContexts"];
+    }
+    return stack;
+}
+
 @implementation NSAnimationContext
-
-- (id) copyWithZone: (NSZone *) zone {
-    return self;
+@synthesize allowsImplicitAnimation = _allowsImplicitAnimation;
+@synthesize completionHandler = _completionHandler;
+- (id)init { if ((self = [super init])) _duration = 0.25; return self; }
+- (void)dealloc { [_completionHandler release]; [super dealloc]; }
+- (id)copyWithZone:(NSZone *)zone {
+    NSAnimationContext *copy = [[[self class] allocWithZone:zone] init];
+    copy->_duration = _duration;
+    copy->_allowsImplicitAnimation = _allowsImplicitAnimation;
+    copy->_completionHandler = [_completionHandler copy];
+    return copy;
 }
-
-+ (void) beginGrouping {
-    NSUnimplementedMethod();
++ (void)beginGrouping {
+    NSAnimationContext *next = [[self currentContext] copy];
+    // OSXER APPKIT (animation groups): a nested group has its own completion.
+    [next setCompletionHandler:nil];
+    [OSXERAnimationStack() addObject:next];
+    [next release];
 }
-+ (void) endGrouping {
-    NSUnimplementedMethod();
++ (void)endGrouping {
+    NSMutableArray *stack = OSXERAnimationStack();
+    if ([stack count] <= 1) [NSException raise:NSInternalInconsistencyException format:@"No animation group to end"];
+    NSAnimationContext *context = [[stack lastObject] retain];
+    [stack removeLastObject];
+    @try { if (context->_completionHandler) context->_completionHandler(); }
+    @finally { [context release]; }
 }
-
-+ (NSAnimationContext *) currentContext {
-    NSUnimplementedMethod();
-    return nil;
++ (NSAnimationContext *)currentContext { return [OSXERAnimationStack() lastObject]; }
+- (void)setDuration:(NSTimeInterval)duration { _duration = duration; }
+- (NSTimeInterval)duration { return _duration; }
++ (void)runAnimationGroup:(void (^)(NSAnimationContext *))changes completionHandler:(void (^)(void))completion {
+    [self beginGrouping];
+    [[self currentContext] setCompletionHandler:completion];
+    @try { if (changes) changes([self currentContext]); }
+    @finally { [self endGrouping]; }
 }
-
-- (void) setDuration: (NSTimeInterval) duration {
-    NSUnimplementedMethod();
++ (void)runAnimationGroup:(void (^)(NSAnimationContext *))changes {
+    [self runAnimationGroup:changes completionHandler:nil];
 }
-- (NSTimeInterval) duration {
-    NSUnimplementedMethod();
-    return 0;
-}
-
 @end

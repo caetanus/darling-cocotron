@@ -404,6 +404,9 @@ static BOOL _allowsAutomaticWindowTabbing;
     [[NSNotificationCenter defaultCenter] removeObserver: self];
     [_childWindows release];
     [_title release];
+    // OSXER APPKIT (represented URL): balance copied document metadata.
+    [_representedURL release];
+    [_representedFilename release];
     [_miniwindowTitle release];
     [_miniwindowImage release];
     [_backgroundView _setWindow: nil];
@@ -529,8 +532,8 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (NSURL *) representedURL {
-    NSUnimplementedMethod();
-    return nil;
+    // OSXER APPKIT (represented URL): shared state with representedFilename.
+    return _representedURL;
 }
 
 - (NSWindowLevel) level {
@@ -1282,10 +1285,19 @@ static BOOL _allowsAutomaticWindowTabbing;
     value = [value copy];
     [_representedFilename release];
     _representedFilename = value;
+    // OSXER APPKIT (represented URL): legacy path setter updates the URL.
+    [_representedURL release];
+    _representedURL = [value length] ? [[NSURL fileURLWithPath: value] copy] : nil;
 }
 
 - (void) setRepresentedURL: (NSURL *) newURL {
-    NSUnimplementedMethod();
+    // OSXER APPKIT (represented URL): document icon/path-menu UI is not present
+    // in NSThemeFrame; preserve the public metadata independently of that UI.
+    newURL = [newURL copy];
+    [_representedURL release];
+    _representedURL = newURL;
+    [_representedFilename release];
+    _representedFilename = [([newURL isFileURL] ? [newURL path] : @"") copy];
 }
 
 - (void) setResizeIncrements: (NSSize) value {
@@ -1416,7 +1428,9 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (NSButton *) standardWindowButton: (NSWindowButton) value {
-    NSUnimplementedMethod();
+    // OSXER APPKIT (window buttons): NSThemeFrame has no title-bar NSButtons.
+    // Native window-manager decorations are outside this view hierarchy.
+    // Apple's contract returns nil when this hierarchy lacks the button.
     return nil;
 }
 
@@ -1544,6 +1558,16 @@ static BOOL _allowsAutomaticWindowTabbing;
 - (NSWindowCollectionBehavior) collectionBehavior {
     NSUnimplementedMethod();
     return 0;
+}
+
+// OSXER APPKIT (screen coordinates): reuse the window's existing conversion.
+- (NSRect) convertRectToScreen: (NSRect) rect {
+    rect.origin = [self convertBaseToScreen: rect.origin];
+    return rect;
+}
+- (NSRect) convertRectFromScreen: (NSRect) rect {
+    rect.origin = [self convertScreenToBase: rect.origin];
+    return rect;
 }
 
 - (NSPoint) convertBaseToScreen: (NSPoint) point {

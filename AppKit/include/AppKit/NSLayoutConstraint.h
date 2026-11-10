@@ -21,12 +21,14 @@
 #import <CoreGraphics/CoreGraphics.h>
 #import <Foundation/NSString.h>
 
-typedef float NSLayoutPriority;
-
-typedef NS_ENUM(NSInteger, NSLayoutConstraintOrientation) {
-	NSLayoutConstraintOrientationHorizontal = 0,
-	NSLayoutConstraintOrientationVertical = 1,
-};
+#import <Foundation/NSLayoutConstraint.h>
 
 APPKIT_EXPORT const CGFloat NSViewNoInstrinsicMetric;
 APPKIT_EXPORT const CGFloat NSViewNoIntrinsicMetric;
+
+// OSXER APPKIT (constraint storage): activation installs constraints on views; no solver.
+@interface NSLayoutConstraint (OSXERActivation)
+@property(getter=isActive) BOOL active;
++ (void)activateConstraints:(NSArray *)constraints;
++ (void)deactivateConstraints:(NSArray *)constraints;
+@end

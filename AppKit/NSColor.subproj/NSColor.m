@@ -46,6 +46,21 @@ NSNotificationName const NSSystemColorsDidChangeNotification = @"NSSystemColorsD
 
 @implementation NSColor
 
+// OSXER APPKIT (color types): preserve identity when already compatible and
+// resolve catalog colors through the existing color-space conversion layer.
+- (NSColorType)type {
+    NSString *space = [self colorSpaceName];
+    if ([space isEqualToString:NSPatternColorSpace]) return NSColorTypePattern;
+    if ([space isEqualToString:NSNamedColorSpace]) return NSColorTypeCatalog;
+    return NSColorTypeComponentBased;
+}
+- (NSColor *)colorUsingType:(NSColorType)type {
+    if (type == [self type]) return self;
+    if (type == NSColorTypeComponentBased)
+        return [self colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
+    return nil;
+}
+
 - (void) encodeWithCoder: (NSCoder *) coder {
 
     if ([coder allowsKeyedCoding]) {
@@ -401,6 +416,61 @@ NSNotificationName const NSSystemColorsDidChangeNotification = @"NSSystemColorsD
                                                                 alpha: 1.0],
                                       nil];
 }
+
+// OSXER APPKIT (system hues): catalog colors resolve against the active appearance.
++ (NSColor *) systemBlueColor {
+    if (OSXERBigSurEnabled()) return [self colorWithCatalogName:@"System" colorName:@"systemBlueColor"];
+    return [self colorWithCalibratedRed:0/255.0 green:122/255.0 blue:255/255.0 alpha:1];
+}
++ (NSColor *) systemBrownColor {
+    if (OSXERBigSurEnabled()) return [self colorWithCatalogName:@"System" colorName:@"systemBrownColor"];
+    return [self colorWithCalibratedRed:162/255.0 green:132/255.0 blue:94/255.0 alpha:1];
+}
++ (NSColor *) systemCyanColor {
+    if (OSXERBigSurEnabled()) return [self colorWithCatalogName:@"System" colorName:@"systemCyanColor"];
+    return [self colorWithCalibratedRed:50/255.0 green:173/255.0 blue:230/255.0 alpha:1];
+}
++ (NSColor *) systemGrayColor {
+    if (OSXERBigSurEnabled()) return [self colorWithCatalogName:@"System" colorName:@"systemGrayColor"];
+    return [self colorWithCalibratedRed:142/255.0 green:142/255.0 blue:147/255.0 alpha:1];
+}
++ (NSColor *) systemGreenColor {
+    if (OSXERBigSurEnabled()) return [self colorWithCatalogName:@"System" colorName:@"systemGreenColor"];
+    return [self colorWithCalibratedRed:40/255.0 green:205/255.0 blue:65/255.0 alpha:1];
+}
++ (NSColor *) systemIndigoColor {
+    if (OSXERBigSurEnabled()) return [self colorWithCatalogName:@"System" colorName:@"systemIndigoColor"];
+    return [self colorWithCalibratedRed:88/255.0 green:86/255.0 blue:214/255.0 alpha:1];
+}
++ (NSColor *) systemMintColor {
+    if (OSXERBigSurEnabled()) return [self colorWithCatalogName:@"System" colorName:@"systemMintColor"];
+    return [self colorWithCalibratedRed:0/255.0 green:199/255.0 blue:190/255.0 alpha:1];
+}
++ (NSColor *) systemOrangeColor {
+    if (OSXERBigSurEnabled()) return [self colorWithCatalogName:@"System" colorName:@"systemOrangeColor"];
+    return [self colorWithCalibratedRed:255/255.0 green:149/255.0 blue:0/255.0 alpha:1];
+}
++ (NSColor *) systemPinkColor {
+    if (OSXERBigSurEnabled()) return [self colorWithCatalogName:@"System" colorName:@"systemPinkColor"];
+    return [self colorWithCalibratedRed:255/255.0 green:45/255.0 blue:85/255.0 alpha:1];
+}
++ (NSColor *) systemPurpleColor {
+    if (OSXERBigSurEnabled()) return [self colorWithCatalogName:@"System" colorName:@"systemPurpleColor"];
+    return [self colorWithCalibratedRed:175/255.0 green:82/255.0 blue:222/255.0 alpha:1];
+}
++ (NSColor *) systemRedColor {
+    if (OSXERBigSurEnabled()) return [self colorWithCatalogName:@"System" colorName:@"systemRedColor"];
+    return [self colorWithCalibratedRed:255/255.0 green:59/255.0 blue:48/255.0 alpha:1];
+}
++ (NSColor *) systemTealColor {
+    if (OSXERBigSurEnabled()) return [self colorWithCatalogName:@"System" colorName:@"systemTealColor"];
+    return [self colorWithCalibratedRed:90/255.0 green:200/255.0 blue:250/255.0 alpha:1];
+}
++ (NSColor *) systemYellowColor {
+    if (OSXERBigSurEnabled()) return [self colorWithCatalogName:@"System" colorName:@"systemYellowColor"];
+    return [self colorWithCalibratedRed:255/255.0 green:204/255.0 blue:0/255.0 alpha:1];
+}
++ (NSColor *) textInsertionPointColor { return [self textColor]; }
 
 + (NSColor *) textColor {
     return [NSColor colorWithCatalogName: @"System" colorName: @"textColor"];

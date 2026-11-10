@@ -55,4 +55,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                  didEndSelector: (SEL) didEndSelector
                     contextInfo: (void *) contextInfo;
 
+// OSXER APPKIT (public compatibility)
+- (BOOL)isAccessoryViewDisclosed;
+- (void)setAccessoryViewDisclosed:(BOOL)disclosed;
 @end

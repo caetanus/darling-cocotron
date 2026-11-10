@@ -166,6 +166,8 @@ typedef NS_OPTIONS(NSUInteger, NSWorkspaceLaunchOptions) {
         (NSString *) bundleIdentifier;
 - (NSString *) fullPathForApplication: (NSString *) appName;
 
+// OSXER APPKIT (public compatibility)
+- (NSURL *) URLForApplicationToOpenURL: (NSURL *) url;
 @end
 
 @interface NSWorkspace (CocotronAdditions)

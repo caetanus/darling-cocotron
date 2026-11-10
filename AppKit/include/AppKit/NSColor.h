@@ -32,6 +32,12 @@ typedef NSString *NSColorSpaceName;
 @class NSColorSpace;
 
 typedef NSUInteger NSControlTint;
+// OSXER APPKIT (color types)
+typedef NS_ENUM(NSInteger, NSColorType) {
+    NSColorTypeComponentBased = 0,
+    NSColorTypePattern = 1,
+    NSColorTypeCatalog = 2,
+};
 enum {
     NSDefaultControlTint = 0,
     NSBlueControlTint = 1,
@@ -46,6 +52,9 @@ enum {
 }
 
 @property(class, strong, readonly) NSColor *labelColor;
+// OSXER APPKIT (color types)
+@property(readonly) NSColorType type;
+- (NSColor *)colorUsingType:(NSColorType)type;
 // OSXER: semantic system colours used by the Big Sur palette.
 @property(class, strong, readonly) NSColor *secondaryLabelColor;
 @property(class, strong, readonly) NSColor *tertiaryLabelColor;
@@ -300,4 +309,19 @@ enum {
 
 - (void) writeToPasteboard: (NSPasteboard *) pasteboard;
 
+// OSXER APPKIT (system hues)
++ (NSColor *) systemBlueColor;
++ (NSColor *) systemBrownColor;
++ (NSColor *) systemCyanColor;
++ (NSColor *) systemGrayColor;
++ (NSColor *) systemGreenColor;
++ (NSColor *) systemIndigoColor;
++ (NSColor *) systemMintColor;
++ (NSColor *) systemOrangeColor;
++ (NSColor *) systemPinkColor;
++ (NSColor *) systemPurpleColor;
++ (NSColor *) systemRedColor;
++ (NSColor *) systemTealColor;
++ (NSColor *) systemYellowColor;
++ (NSColor *) textInsertionPointColor;
 @end

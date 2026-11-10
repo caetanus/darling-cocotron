@@ -62,6 +62,9 @@ typedef enum {
 + imageNamed: (NSString *) name;
 
 - initWithSize: (NSSize) size;
+// OSXER APPKIT (procedural images and flipped focus)
++ (instancetype)imageWithSize:(NSSize)size flipped:(BOOL)flipped drawingHandler:(BOOL (^)(NSRect))handler;
+- (void)lockFocusFlipped:(BOOL)flipped;
 - initWithData: (NSData *) data;
 - initWithContentsOfFile: (NSString *) path;
 - initWithContentsOfURL: (NSURL *) url;
@@ -172,6 +175,8 @@ typedef enum {
         (NSImageSymbolConfiguration *) configuration;
 - (NSImageSymbolConfiguration *) symbolConfiguration;
 
+// OSXER APPKIT (public compatibility)
++ (NSArray *) imageTypes;
 @end
 
 typedef NS_ENUM(NSInteger, NSImageSymbolScale) {
@@ -204,6 +209,9 @@ typedef NS_ENUM(NSInteger, NSImageSymbolScale) {
 @end
 
 @interface NSBundle (NSImage)
+// OSXER APPKIT (bundle images)
+- (NSImage *) imageForResource: (NSString *) name;
+
 - (NSString *) pathForImageResource: (NSString *) name;
 @end
 

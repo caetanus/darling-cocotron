@@ -30,6 +30,8 @@
 
 @implementation NSTouchBar
 
+// OSXER APPKIT (Touch Bar principal item): no hardware layout backend.
+@synthesize principalItemIdentifier = _principalItemIdentifier;
 @synthesize delegate = _delegate;
 @synthesize defaultItemIdentifiers = _defaultItemIdentifiers;
 
@@ -44,6 +46,8 @@
 }
 
 - (void) dealloc {
+    // OSXER APPKIT (Touch Bar principal item)
+    [_principalItemIdentifier release];
     [_defaultItemIdentifiers release];
     [_items release];
     [super dealloc];

@@ -44,6 +44,21 @@ typedef struct {
 #define ENTRY(name, rgb, alpha, darkRGB, darkAlpha) \
     { @name, {rgb, alpha}, {darkRGB, darkAlpha} }
 static const OSXERPaletteEntry entries[] = {
+    // OSXER APPKIT (system hues): approximate light/dark tints; no vibrancy backend.
+    ENTRY("systemBlueColor", 0x007AFF, 1, 0x0A84FF, 1),
+    ENTRY("systemBrownColor", 0xA2845E, 1, 0xAC8E68, 1),
+    ENTRY("systemCyanColor", 0x32ADE6, 1, 0x64D2FF, 1),
+    ENTRY("systemGrayColor", 0x8E8E93, 1, 0x98989D, 1),
+    ENTRY("systemGreenColor", 0x28CD41, 1, 0x32D74B, 1),
+    ENTRY("systemIndigoColor", 0x5856D6, 1, 0x5E5CE6, 1),
+    ENTRY("systemMintColor", 0x00C7BE, 1, 0x66D4CF, 1),
+    ENTRY("systemOrangeColor", 0xFF9500, 1, 0xFF9F0A, 1),
+    ENTRY("systemPinkColor", 0xFF2D55, 1, 0xFF375F, 1),
+    ENTRY("systemPurpleColor", 0xAF52DE, 1, 0xBF5AF2, 1),
+    ENTRY("systemRedColor", 0xFF3B30, 1, 0xFF453A, 1),
+    ENTRY("systemTealColor", 0x5AC8FA, 1, 0x64D2FF, 1),
+    ENTRY("systemYellowColor", 0xFFCC00, 1, 0xFFD60A, 1),
+
     // dark-window.png (10,100)=#282828
     ENTRY("windowBackgroundColor", 0xF6F6F6, 1, 0x282828, 1),
     // dark-window.png (100,380)=#1E1E1E

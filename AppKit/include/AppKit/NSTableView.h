@@ -115,7 +115,13 @@ typedef enum {
     NSArray *_sortDescriptors;
 
     NSInteger _draggingRow;
+    // OSXER APPKIT (table dragging): local and external masks are independent.
+    NSDragOperation _localDraggingMask, _externalDraggingMask;
 }
+
+// OSXER APPKIT (table dragging): default drag-source policy.
+- (void) setDraggingSourceOperationMask: (NSDragOperation) mask forLocal: (BOOL) local;
+- (NSDragOperation) draggingSourceOperationMaskForLocal: (BOOL) local;
 
 - (SEL) doubleAction;
 

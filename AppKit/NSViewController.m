@@ -7,6 +7,9 @@
 
 @implementation NSViewController
 
+// OSXER APPKIT (controller lifecycle): documented default hook does nothing.
+- (void)viewDidDisappear {}
+
 @synthesize identifier = _identifier;
 
 - initWithNibName: (NSString *) name bundle: (NSBundle *) bundle {

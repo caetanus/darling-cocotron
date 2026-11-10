@@ -104,4 +104,6 @@ typedef NSUInteger NSUsableScrollerParts;
 - (void) trackKnob: (NSEvent *) event;
 - (void) trackScrollButtons: (NSEvent *) event;
 
+// OSXER APPKIT (public compatibility)
+- (void) setKnobProportion:(CGFloat)proportion;
 @end

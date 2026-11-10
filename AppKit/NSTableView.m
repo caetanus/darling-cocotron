@@ -99,14 +99,40 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
 }
 
 - (void) encodeWithCoder: (NSCoder *) coder {
-    NSUnimplementedMethod();
+    // OSXER APPKIT (table dragging): encode the fields consumed by our decoder,
+    // including independent masks. Private keys only describe our own archives.
+    [super encodeWithCoder: coder];
+    unsigned flags = (_allowsColumnReordering ? 0x80000000 : 0) |
+        (_allowsColumnResizing ? 0x40000000 : 0) |
+        (_autoresizesAllColumnsToFit ? 0x00008000 : 0) |
+        (_allowsMultipleSelection ? 0x08000000 : 0) |
+        (_allowsEmptySelection ? 0x10000000 : 0) |
+        (_allowsColumnSelection ? 0x04000000 : 0) |
+        (_alternatingRowBackground ? 0x00800000 : 0);
+    [coder encodeInt: flags forKey: @"NSTvFlags"];
+    [coder encodeObject: _headerView forKey: @"NSHeaderView"];
+    [coder encodeObject: _cornerView forKey: @"NSCornerView"];
+    [coder encodeObject: _tableColumns forKey: @"NSTableColumns"];
+    [coder encodeObject: _backgroundColor forKey: @"NSBackgroundColor"];
+    [coder encodeObject: _gridColor forKey: @"NSGridColor"];
+    [coder encodeFloat: _standardRowHeight forKey: @"NSRowHeight"];
+    [coder encodeInt: _gridStyleMask forKey: @"NSGridStyleMask"];
+    [coder encodeInteger: _localDraggingMask forKey: @"OSXERLocalDraggingMask"];
+    [coder encodeInteger: _externalDraggingMask forKey: @"OSXERExternalDraggingMask"];
 }
 
 - initWithCoder: (NSCoder *) coder {
     [super initWithCoder: coder];
+    // OSXER APPKIT (table dragging): documented defaults for older archives.
+    _localDraggingMask = NSDragOperationEvery;
+    _externalDraggingMask = NSDragOperationNone;
 
     if ([coder allowsKeyedCoding]) {
         NSKeyedUnarchiver *keyed = (NSKeyedUnarchiver *) coder;
+        if ([coder containsValueForKey: @"OSXERLocalDraggingMask"])
+            _localDraggingMask = [coder decodeIntegerForKey: @"OSXERLocalDraggingMask"];
+        if ([coder containsValueForKey: @"OSXERExternalDraggingMask"])
+            _externalDraggingMask = [coder decodeIntegerForKey: @"OSXERExternalDraggingMask"];
         unsigned flags = [keyed decodeIntForKey: @"NSTvFlags"];
 
         _headerView = [[keyed decodeObjectForKey: @"NSHeaderView"] retain];
@@ -152,6 +178,9 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
 
 - initWithFrame: (NSRect) frame {
     [super initWithFrame: frame];
+    // OSXER APPKIT (table dragging): documented initial drag policy.
+    _localDraggingMask = NSDragOperationEvery;
+    _externalDraggingMask = NSDragOperationNone;
     _rowHeightsCount = 0;
     _rowHeights = NULL;
     // OSXER: only defaults change; explicit/nib row heights remain respected.
@@ -2047,7 +2076,14 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
 }
 
 - (NSDragOperation) draggingSourceOperationMaskForLocal: (BOOL) isLocal {
-    return NSDragOperationCopy;
+    // OSXER APPKIT (table dragging): subclasses can still override this hook.
+    return isLocal ? _localDraggingMask : _externalDraggingMask;
+}
+
+// OSXER APPKIT (table dragging): configure only the selected destination scope.
+- (void) setDraggingSourceOperationMask: (NSDragOperation) mask forLocal: (BOOL) local {
+    if (local) _localDraggingMask = mask;
+    else _externalDraggingMask = mask;
 }
 
 - (NSInteger) _getDraggedRow: (id<NSDraggingInfo>) info {

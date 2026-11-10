@@ -19,7 +19,16 @@
 
 #import <AppKit/NSCustomTouchBarItem.h>
 
+#import <AppKit/NSViewController.h>
+// OSXER APPKIT (Touch Bar content): controller owns its loaded view.
 @implementation NSCustomTouchBarItem
+
+// OSXER APPKIT (Touch Bar content): retaining a controller supplies its view.
+- (NSViewController *)viewController { return _viewController; }
+- (void)setViewController:(NSViewController *)controller {
+    [controller retain]; [_viewController release]; _viewController = controller;
+    [self setView:[controller view]];
+}
 
 @synthesize view = _view;
 @synthesize customizationLabel = _customizationLabel;
@@ -35,6 +44,8 @@
 }
 
 - (void) dealloc {
+    // OSXER APPKIT (Touch Bar content)
+    [_viewController release];
     [_view release];
     [_customizationLabel release];
     [super dealloc];

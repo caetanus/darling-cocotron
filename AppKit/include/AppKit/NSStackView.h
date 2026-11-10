@@ -19,5 +19,14 @@
 
 #import <AppKit/NSView.h>
 
-@interface NSStackView : NSView
+// OSXER APPKIT (stack storage): manage ordering without inventing a layout solver.
+@interface NSStackView : NSView {
+    NSMutableArray *_arrangedSubviews;
+    CGFloat _spacing;
+}
+@property(readonly, copy) NSArray *arrangedSubviews;
+@property CGFloat spacing;
+- (void)addArrangedSubview:(NSView *)view;
+- (void)insertArrangedSubview:(NSView *)view atIndex:(NSUInteger)index;
+- (void)removeArrangedSubview:(NSView *)view;
 @end

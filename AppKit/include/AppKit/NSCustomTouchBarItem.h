@@ -21,13 +21,17 @@
 #import <AppKit/NSTouchBarItem.h>
 #import <Foundation/Foundation.h>
 
-@class NSView;
+@class NSView, NSViewController;
 
 @interface NSCustomTouchBarItem : NSTouchBarItem {
     NSView *_view;
+    // OSXER APPKIT (Touch Bar content)
+    NSViewController *_viewController;
     NSString *_customizationLabel;
 }
 @property(retain) NSView *view;
+// OSXER APPKIT (Touch Bar content)
+@property(retain) NSViewController *viewController;
 @property(copy) NSString *customizationLabel;
 @end
 

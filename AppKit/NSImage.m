@@ -285,7 +285,75 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
 }
 @end
 
+#import <CoreServices/CoreServices.h>
+// OSXER APPKIT (procedural images): the representation owns and lazily invokes
+// the block on the drawing thread, using the existing NSImage cache pipeline.
+@interface OSXERBlockImageRep : NSCustomImageRep {
+    BOOL (^_drawingHandler)(NSRect);
+    BOOL _flippedContext;
+}
+- (id)initWithSize:(NSSize)size flipped:(BOOL)flipped handler:(BOOL (^)(NSRect))handler;
+@end
+@implementation OSXERBlockImageRep
+- (id)initWithSize:(NSSize)size flipped:(BOOL)flipped handler:(BOOL (^)(NSRect))handler {
+    if ((self = [super init])) {
+        [self setSize:size];
+        _drawingHandler = [handler copy];
+        _flippedContext = flipped;
+    }
+    return self;
+}
+- (void)dealloc { [_drawingHandler release]; [super dealloc]; }
+- (id)copyWithZone:(NSZone *)zone {
+    OSXERBlockImageRep *copy = [super copyWithZone:zone];
+    copy->_drawingHandler = [_drawingHandler copy];
+    return copy;
+}
+- (BOOL)draw { return [self drawInRect:(NSRect){NSZeroPoint, [self size]}]; }
+- (BOOL)drawInRect:(NSRect)rect {
+    NSGraphicsContext *context = [NSGraphicsContext currentContext];
+    CGContextRef port = [context graphicsPort];
+    if (!port || !_drawingHandler) return NO;
+    CGContextSaveGState(port);
+    if (_flippedContext != [context isFlipped]) {
+        CGContextTranslateCTM(port, 0, NSMinY(rect) + NSMaxY(rect));
+        CGContextScaleCTM(port, 1, -1);
+    }
+    NSView *view = [[[NSImageCacheView alloc] initWithFlipped:_flippedContext] autorelease];
+    [[context focusStack] addObject:view];
+    BOOL drawn;
+    @try { drawn = _drawingHandler(rect); }
+    @finally {
+        [[context focusStack] removeLastObject];
+        CGContextRestoreGState(port);
+    }
+    return drawn;
+}
+@end
+
+// OSXER APPKIT (image types): use LaunchServices UTI conversion.
 @implementation NSImage
+
+// OSXER APPKIT (procedural images)
++ (instancetype)imageWithSize:(NSSize)size flipped:(BOOL)flipped drawingHandler:(BOOL (^)(NSRect))handler {
+    if (!handler) [NSException raise:NSInvalidArgumentException format:@"An image drawing handler is required"];
+    NSImage *image = [[[self alloc] initWithSize:size] autorelease];
+    NSImageRep *rep = [[OSXERBlockImageRep alloc] initWithSize:size flipped:flipped handler:handler];
+    [image addRepresentation:rep];
+    [rep release];
+    return image;
+}
+
+// OSXER APPKIT (image types): convert the representation registry's extensions.
++ (NSArray *) imageTypes {
+    NSMutableArray *types = [NSMutableArray array];
+    for (NSString *extension in [self imageFileTypes]) {
+        NSString *uti = [(NSString *)UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension,
+            (CFStringRef)extension, kUTTypeImage) autorelease];
+        if (uti && ![types containsObject:uti]) [types addObject:uti];
+    }
+    return types;
+}
 
 + (NSArray *) imageFileTypes {
     return [self imageUnfilteredFileTypes];
@@ -976,6 +1044,19 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
     [self lockFocusOnRepresentation: nil];
 }
 
+// OSXER APPKIT (flipped focus): change only this drawing context, not image state.
+- (void)lockFocusFlipped:(BOOL)flipped {
+    [self lockFocus];
+    NSGraphicsContext *context = [NSGraphicsContext currentContext];
+    if (flipped != [context isFlipped]) {
+        CGContextTranslateCTM([context graphicsPort], 0, [self size].height);
+        CGContextScaleCTM([context graphicsPort], 1, -1);
+    }
+    NSView *view = [[[NSImageCacheView alloc] initWithFlipped:flipped] autorelease];
+    [[context focusStack] removeLastObject];
+    [[context focusStack] addObject:view];
+}
+
 - (void) lockFocusOnRepresentation: (NSImageRep *) representation {
     NSGraphicsContext *context = nil;
     CGContextRef graphicsPort;
@@ -1032,7 +1113,8 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
     // Some fake view, just so the context knows if it's flipped or not
     NSView *view = [[[NSImageCacheView alloc] initWithFlipped: [self isFlipped]]
             autorelease];
-    [[context focusStack] addObject: self];
+    // OSXER APPKIT (flipped focus): preserve the flip state independently of self.
+    [[context focusStack] addObject: view];
 
     if ([self isFlipped]) {
         CGAffineTransform flip = {1, 0, 0, -1, 0, [self size].height};
@@ -1513,6 +1595,29 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
 @end
 
 @implementation NSBundle (NSImage)
+
+// OSXER APPKIT (bundle images): collect extension/resolution representations.
+- (NSImage *) imageForResource: (NSString *) name {
+    if (![name length]) return nil;
+    NSString *extension = [name pathExtension];
+    NSString *base = [name stringByDeletingPathExtension];
+    NSArray *extensions = [extension length] ? @[extension] : [NSImage imageFileTypes];
+    NSImage *image = nil;
+    for (NSString *type in extensions) {
+        for (NSUInteger scale = 1; scale <= 3; ++scale) {
+            NSString *variant = scale == 1 ? base : [base stringByAppendingFormat:@"@%lux", (unsigned long)scale];
+            NSString *path = [self pathForResource:variant ofType:type];
+            if (!path) continue;
+            for (NSImageRep *rep in [NSImageRep imageRepsWithContentsOfFile:path]) {
+                if (scale > 1) [rep setSize:NSMakeSize([rep size].width / scale, [rep size].height / scale)];
+                if (!image) image = [[[NSImage alloc] initWithSize:[rep size]] autorelease];
+                [image addRepresentation:rep];
+            }
+        }
+    }
+    [image setTemplate:[base hasSuffix:@"Template"]];
+    return image;
+}
 
 - (NSString *) pathForImageResource: (NSString *) name {
     NSString *extension = [name pathExtension];

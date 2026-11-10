@@ -139,6 +139,12 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
     NSLayoutPriority _verticalContentCompressionResistancePriority;
 
     NSAppearance *_appearance;
+    // OSXER APPKIT (view state): non-layer-backed views retain these too.
+    CGFloat _alphaValue;
+    BOOL _canDrawConcurrently;
+    // OSXER APPKIT (constraint storage): retain metadata, keep frame layout.
+    NSMutableArray *_osxerConstraints;
+    BOOL _osxerNeedsLayout;
 }
 
 @property(class, readonly) BOOL requiresConstraintBasedLayout;
@@ -461,6 +467,20 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
 - (void) _collectTrackingAreasForWindowInto: (NSMutableArray *) collector;
 
 @end
+
+@interface NSView (OSXERConstraints)
+// OSXER APPKIT (constraint storage)
+- (NSArray *)constraints;
+- (void)addConstraint:(NSLayoutConstraint *)constraint;
+- (void)addConstraints:(NSArray *)constraints;
+- (void)removeConstraint:(NSLayoutConstraint *)constraint;
+- (void)removeConstraints:(NSArray *)constraints;
+- (BOOL)needsLayout;
+- (void)setNeedsLayout:(BOOL)flag;
+- (void)layout;
+- (void)layoutSubtreeIfNeeded;
+@end
+
 
 @interface NSObject (NSView_toolTipOwner)
 - (NSString *) view: (NSView *) view

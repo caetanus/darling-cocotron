@@ -27,6 +27,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) _setAcceptedPaths: (NSArray *) paths;
 @end
 
+// OSXER APPKIT (accessory disclosure): use the actual accessory view visibility.
 @implementation NSOpenPanel
 
 - (id) resetToDefaultValues {
@@ -48,6 +49,10 @@ static NSOpenPanel *_newPanel = nil;
 + (void) set_newPanel: (NSOpenPanel *) newPanel {
     _newPanel = newPanel;
 }
+
+// OSXER APPKIT (accessory disclosure): absence of an accessory is a no-op.
+- (BOOL)isAccessoryViewDisclosed { return [self accessoryView] && ![[self accessoryView] isHidden]; }
+- (void)setAccessoryViewDisclosed:(BOOL)disclosed { [[self accessoryView] setHidden:!disclosed]; }
 
 + (NSSavePanel *) openPanel {
     if ([[NSDisplay currentDisplay] implementsCustomPanelForClass: self]) {

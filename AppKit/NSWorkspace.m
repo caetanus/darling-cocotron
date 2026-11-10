@@ -67,7 +67,15 @@ NSNotificationName NSWorkspaceDidMountNotification = @"NSWorkspaceDidMountNotifi
 NSNotificationName NSWorkspaceDidUnmountNotification = @"NSWorkspaceDidUnmountNotification";
 NSNotificationName NSWorkspaceWillUnmountNotification = @"NSWorkspaceWillUnmountNotification";
 
+// OSXER APPKIT (application lookup): LaunchServices owns the registration database.
+#import <CoreServices/CoreServices.h>
 @implementation NSWorkspace
+
+// OSXER APPKIT (application lookup): retain LaunchServices' error/no-handler behavior.
+- (NSURL *) URLForApplicationToOpenURL: (NSURL *) url {
+    if (!url) return nil;
+    return [(NSURL *)LSCopyDefaultApplicationURLForURL((CFURLRef)url, kLSRolesAll, NULL) autorelease];
+}
 
 + (NSWorkspace *) sharedWorkspace {
     return NSThreadSharedInstance(@"NSWorkspace");

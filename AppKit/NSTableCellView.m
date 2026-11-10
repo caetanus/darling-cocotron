@@ -19,16 +19,22 @@
 
 #import <AppKit/NSTableCellView.h>
 
+// OSXER APPKIT (table cell outlets): the view hierarchy owns the two outlets.
 @implementation NSTableCellView
-
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+@synthesize textField = _textField, imageView = _imageView, objectValue = _objectValue;
+- (id)initWithCoder:(NSCoder *)coder {
+    if ((self = [super initWithCoder:coder])) {
+        _textField = [coder decodeObjectForKey:@"OSXERTextField"];
+        _imageView = [coder decodeObjectForKey:@"OSXERImageView"];
+        _objectValue = [[coder decodeObjectForKey:@"OSXERObjectValue"] retain];
+    }
+    return self;
 }
-
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+- (void)encodeWithCoder:(NSCoder *)coder {
+    [super encodeWithCoder:coder];
+    [coder encodeConditionalObject:_textField forKey:@"OSXERTextField"];
+    [coder encodeConditionalObject:_imageView forKey:@"OSXERImageView"];
+    [coder encodeObject:_objectValue forKey:@"OSXERObjectValue"];
 }
-
+- (void)dealloc { [_objectValue release]; [super dealloc]; }
 @end

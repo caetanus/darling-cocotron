@@ -27,6 +27,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSAffineTransform.h>
 #import <AppKit/NSAlert.h>
 #import <AppKit/NSAnimation.h>
+// OSXER APPKIT (animation groups)
+#import <AppKit/NSAnimationContext.h>
 #import <AppKit/NSAppearance.h>
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSArrayController.h>
