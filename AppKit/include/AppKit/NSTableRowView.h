@@ -18,6 +18,29 @@
 */
 
 #import <AppKit/NSView.h>
-
-@interface NSTableRowView : NSView
+#import <AppKit/NSTableView.h>
+#import <AppKit/NSCell.h>
+// OSXER APPKIT (row views): typed state and basic drawing; source-list effects are partial.
+@interface NSTableRowView : NSView {
+    NSTableView *_osxerTable; // table owns visible row views
+    NSInteger _osxerRow;
+}
+@property(getter=isSelected) BOOL selected;
+@property(getter=isEmphasized) BOOL emphasized;
+@property(getter=isGroupRowStyle) BOOL groupRowStyle;
+@property(getter=isFloating) BOOL floating;
+@property(getter=isTargetForDropOperation) BOOL targetForDropOperation;
+@property(getter=isPreviousRowSelected) BOOL previousRowSelected;
+@property(getter=isNextRowSelected) BOOL nextRowSelected;
+@property NSTableViewDraggingDestinationFeedbackStyle draggingDestinationFeedbackStyle;
+@property NSTableViewSelectionHighlightStyle selectionHighlightStyle;
+@property CGFloat indentationForDropOperation;
+@property(retain) NSColor *backgroundColor;
+@property(readonly) NSBackgroundStyle interiorBackgroundStyle;
+@property(readonly) NSInteger numberOfColumns;
+- (NSView *)viewAtColumn:(NSInteger)column;
+- (void)drawBackgroundInRect:(NSRect)rect;
+- (void)drawSelectionInRect:(NSRect)rect;
+- (void)drawSeparatorInRect:(NSRect)rect;
+- (void)drawDraggingDestinationFeedbackInRect:(NSRect)rect;
 @end

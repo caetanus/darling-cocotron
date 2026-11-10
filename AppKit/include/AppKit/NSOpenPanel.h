@@ -59,3 +59,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (BOOL)isAccessoryViewDisclosed;
 - (void)setAccessoryViewDisclosed:(BOOL)disclosed;
 @end
+
+// OSXER APPKIT (API additions): public declarations.
+
+@interface NSOpenPanel (OSXERAPIAdditions)
+@property(getter=canDownloadUbiquitousContents) BOOL canDownloadUbiquitousContents;
+@property(getter=canResolveUbiquitousConflicts) BOOL canResolveUbiquitousConflicts;
+
+@end

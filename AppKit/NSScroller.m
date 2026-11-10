@@ -692,3 +692,14 @@ static inline CGFloat roundFloat(CGFloat value) {
 }
 
 @end
+
+// OSXER APPKIT (API additions): stored visual state is partial where rendering needs support.
+#import "OSXERAppKitAPI.h"
+
+@implementation NSScroller (OSXERAPIAdditions)
+OSXER_API_SCALAR(NSScrollerKnobStyle, knobStyle, setKnobStyle, NSScrollerKnobStyleDefault)
+OSXER_API_SCALAR(NSControlTint, controlTint, setControlTint, NSDefaultControlTint)
++ (CGFloat)scrollerWidthForControlSize:(NSControlSize)size { return [self scrollerWidth]; }
++ (CGFloat)scrollerWidthForControlSize:(NSControlSize)size scrollerStyle:(NSScrollerStyle)style { return [self scrollerWidthForControlSize:size]; }
++ (BOOL)isCompatibleWithOverlayScrollers { return YES; }
+@end

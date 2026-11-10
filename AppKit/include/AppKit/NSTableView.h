@@ -83,6 +83,29 @@ typedef NS_ENUM(NSInteger, NSTableViewStyle) {
     NSTableViewStyleSourceList, NSTableViewStylePlain
 };
 
+// OSXER APPKIT (table API): public enums and view-based row operations.
+@class NSTableRowView;
+typedef NS_ENUM(NSInteger, NSTableViewRowSizeStyle) {
+    NSTableViewRowSizeStyleDefault = -1, NSTableViewRowSizeStyleCustom = 0,
+    NSTableViewRowSizeStyleSmall, NSTableViewRowSizeStyleMedium, NSTableViewRowSizeStyleLarge
+};
+typedef NS_ENUM(NSInteger, NSTableViewDraggingDestinationFeedbackStyle) {
+    NSTableViewDraggingDestinationFeedbackStyleNone = 0,
+    NSTableViewDraggingDestinationFeedbackStyleRegular,
+    NSTableViewDraggingDestinationFeedbackStyleSourceList
+};
+typedef NS_ENUM(NSUInteger, NSTableViewColumnAutoresizingStyle) {
+    NSTableViewNoColumnAutoresizing = 0, NSTableViewUniformColumnAutoresizingStyle,
+    NSTableViewSequentialColumnAutoresizingStyle, NSTableViewReverseSequentialColumnAutoresizingStyle,
+    NSTableViewLastColumnOnlyAutoresizingStyle, NSTableViewFirstColumnOnlyAutoresizingStyle
+};
+typedef NS_OPTIONS(NSUInteger, NSTableViewAnimationOptions) {
+    NSTableViewAnimationEffectNone = 0, NSTableViewAnimationEffectFade = 1,
+    NSTableViewAnimationEffectGap = 2, NSTableViewAnimationSlideUp = 0x10,
+    NSTableViewAnimationSlideDown = 0x20, NSTableViewAnimationSlideLeft = 0x30,
+    NSTableViewAnimationSlideRight = 0x40
+};
+
 @interface NSTableView : NSControl {
     NSTableViewStyle _osxerStyle;
     BOOL _osxerUsesAutomaticRowHeights;
@@ -133,6 +156,12 @@ typedef NS_ENUM(NSInteger, NSTableViewStyle) {
     NSArray *_osxerPrototypeSelfIdentifiers;
     BOOL _osxerTilingViews;
     NSUInteger _osxerUpdateDepth;
+    // OSXER APPKIT (row management): indexes follow model insertions/removals/moves.
+    NSMutableDictionary *_osxerRowViews;
+    NSMutableIndexSet *_osxerHiddenRows;
+    NSString *_osxerAutosaveName;
+    BOOL _osxerAutosaveColumns;
+    NSTableViewDropOperation _osxerDropOperation;
 
 }
 
@@ -305,6 +334,9 @@ typedef NS_ENUM(NSInteger, NSTableViewStyle) {
 // OSXER APPKIT (view tables): the view factory is an optional delegate method.
 @optional
 - (NSView *)tableView:(NSTableView *)tableView viewForTableColumn:(NSTableColumn *)column row:(NSInteger)row;
+- (NSTableRowView *)tableView:(NSTableView *)tableView rowViewForRow:(NSInteger)row;
+- (void)tableView:(NSTableView *)tableView didAddRowView:(NSTableRowView *)view forRow:(NSInteger)row;
+- (void)tableView:(NSTableView *)tableView didRemoveRowView:(NSTableRowView *)view forRow:(NSInteger)row;
 @required
 - (BOOL) tableView: (NSTableView *) tableView
         shouldEditTableColumn: (NSTableColumn *) tableColumn
@@ -327,4 +359,26 @@ typedef NS_ENUM(NSInteger, NSTableViewStyle) {
 - (void) tableViewSelectionDidChange: (NSNotification *) note;
 - (void) tableViewColumnDidMove: (NSNotification *) note;
 - (void) tableViewColumnDidResize: (NSNotification *) note;
+@end
+
+// OSXER APPKIT (table API): visual style properties are stored; animated edits apply immediately.
+@interface NSTableView (OSXERTableAPI)
+@property BOOL floatsGroupRows;
+@property NSTableViewRowSizeStyle rowSizeStyle;
+@property(readonly) NSTableViewRowSizeStyle effectiveRowSizeStyle;
+@property NSTableViewDraggingDestinationFeedbackStyle draggingDestinationFeedbackStyle;
+@property NSTableViewColumnAutoresizingStyle columnAutoresizingStyle;
+@property BOOL verticalMotionCanBeginDrag;
+@property BOOL allowsTypeSelect;
+@property BOOL usesStaticContents;
+@property(readonly, copy) NSIndexSet *hiddenRowIndexes;
+- (NSTableRowView *)rowViewAtRow:(NSInteger)row makeIfNecessary:(BOOL)make;
+- (void)enumerateAvailableRowViewsUsingBlock:(void (^)(NSTableRowView *, NSInteger))block;
+- (void)insertRowsAtIndexes:(NSIndexSet *)indexes withAnimation:(NSTableViewAnimationOptions)animation;
+- (void)removeRowsAtIndexes:(NSIndexSet *)indexes withAnimation:(NSTableViewAnimationOptions)animation;
+- (void)moveRowAtIndex:(NSInteger)from toIndex:(NSInteger)to;
+- (void)hideRowsAtIndexes:(NSIndexSet *)indexes withAnimation:(NSTableViewAnimationOptions)animation;
+- (void)unhideRowsAtIndexes:(NSIndexSet *)indexes withAnimation:(NSTableViewAnimationOptions)animation;
+- (void)setDropRow:(NSInteger)row dropOperation:(NSTableViewDropOperation)operation;
+- (void)selectColumnIndexes:(NSIndexSet *)indexes byExtendingSelection:(BOOL)extend;
 @end

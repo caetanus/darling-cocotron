@@ -62,3 +62,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 // TODO
 
 @end
+
+// OSXER APPKIT (API additions): public declarations.
+#import <AppKit/NSTextFieldCell.h>
+@interface NSTextField (OSXERAPIAdditions)
+@property(getter=allowsEditingTextAttributes) BOOL allowsEditingTextAttributes;
+@property(getter=importsGraphics) BOOL importsGraphics;
+@property(getter=allowsDefaultTighteningForTruncation) BOOL allowsDefaultTighteningForTruncation;
+@property(getter=isAutomaticTextCompletionEnabled) BOOL automaticTextCompletionEnabled;
+@property NSTextFieldBezelStyle bezelStyle;
++ (instancetype)textFieldWithString:(NSString *)string;
++ (instancetype)wrappingLabelWithString:(NSString *)string;
++ (instancetype)labelWithAttributedString:(NSAttributedString *)string;
+@end

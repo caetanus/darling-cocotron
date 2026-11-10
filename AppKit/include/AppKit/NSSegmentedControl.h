@@ -75,3 +75,11 @@ typedef enum {
 - (NSSegmentSwitchTracking) trackingMode;
 - (void) setTrackingMode: (NSSegmentSwitchTracking) trackingMode;
 @end
+
+// OSXER APPKIT (API additions): public declarations.
+
+@interface NSSegmentedControl (OSXERAPIAdditions)
+@property(getter=isSpringLoaded) BOOL springLoaded;
+ + (instancetype)segmentedControlWithLabels:(NSArray *)labels trackingMode:(NSSegmentSwitchTracking)mode target:(id)target action:(SEL)action;
++ (instancetype)segmentedControlWithImages:(NSArray *)images trackingMode:(NSSegmentSwitchTracking)mode target:(id)target action:(SEL)action;
+@end

@@ -1349,3 +1349,11 @@ void NSDrawNinePartImage(NSRect frame, NSImage* topLeftCorner,
 {
     NSUnimplementedFunction();
 };
+
+// OSXER APPKIT (API additions): stored visual state is partial where rendering needs support.
+#import "OSXERAppKitAPI.h"
+
+@implementation NSCell (OSXERAPIAdditions)
+OSXER_API_SCALAR(NSControlTint, controlTint, setControlTint, NSDefaultControlTint)
+
+@end

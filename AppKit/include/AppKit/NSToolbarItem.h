@@ -111,3 +111,11 @@ APPKIT_EXPORT const NSToolbarItemIdentifier NSToolbarSpaceItemIdentifier;
 @interface NSObject (NSToolbarItem_validation)
 - (BOOL) validateToolbarItem: (NSToolbarItem *) item;
 @end
+
+// OSXER APPKIT (API additions): public declarations.
+
+@interface NSToolbarItem (OSXERAPIAdditions)
+@property(getter=isBordered) BOOL bordered;
+@property(getter=isNavigational) BOOL navigational;
+
+@end

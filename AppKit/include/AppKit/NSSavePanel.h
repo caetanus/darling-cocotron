@@ -127,3 +127,13 @@ enum {
 // TODO
 
 @end
+
+// OSXER APPKIT (panel API)
+@interface NSSavePanel (OSXERPanelAPI)
+- (BOOL)canCreateDirectories;
+- (BOOL)allowsOtherFileTypes;
+- (BOOL)isExpanded;
+- (void)ok:(id)sender;
+- (void)cancel:(id)sender;
+- (void)validateVisibleColumns;
+@end

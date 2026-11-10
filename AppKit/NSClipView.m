@@ -74,6 +74,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [[NSNotificationCenter defaultCenter] removeObserver: self];
     [_backgroundColor release];
     [_docView release];
+    [_documentCursor release]; // OSXER APPKIT (document cursor ownership)
     [super dealloc];
 }
 
@@ -116,7 +117,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     value = [value retain];
     [_documentCursor release];
     _documentCursor = value;
-    NSUnimplementedMethod();
+    // OSXER APPKIT (document cursor): owned state; cursor tracking uses normal view invalidation.
+    [[self window] invalidateCursorRectsForView:self];
 }
 
 - (void) setDocumentView: (NSView *) view {
@@ -153,9 +155,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     }
 }
 
+// OSXER APPKIT (clip geometry): document extents cover at least the viewport.
 - (NSRect) documentRect {
-    NSUnimplementedMethod();
-    return NSMakeRect(0, 0, 0, 0);
+    if (!_docView) return NSZeroRect;
+    NSRect rect = [_docView frame];
+    rect.size.width = MAX(rect.size.width, [self bounds].size.width);
+    rect.size.height = MAX(rect.size.height, [self bounds].size.height); return rect;
 }
 
 - (NSRect) documentVisibleRect {
@@ -314,4 +319,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     }
 }
 
+@end
+
+// OSXER APPKIT (API additions): stored visual state is partial where rendering needs support.
+#import "OSXERAppKitAPI.h"
+
+@implementation NSClipView (OSXERAPIAdditions)
+OSXER_API_SCALAR(NSEdgeInsets, contentInsets, setContentInsets, NSEdgeInsetsZero)
+OSXER_API_SCALAR(BOOL, automaticallyAdjustsContentInsets, setAutomaticallyAdjustsContentInsets, YES)
+- (NSRect)constrainBoundsRect:(NSRect)rect {
+    NSRect document = [self documentRect];
+    rect.origin.x = MAX(NSMinX(document), MIN(rect.origin.x, NSMaxX(document) - rect.size.width));
+    rect.origin.y = MAX(NSMinY(document), MIN(rect.origin.y, NSMaxY(document) - rect.size.height)); return rect;
+}
 @end

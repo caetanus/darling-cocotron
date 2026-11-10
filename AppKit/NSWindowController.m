@@ -43,7 +43,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [storyboard retain]; [_storyboard release]; _storyboard = storyboard;
     [_contentViewController setStoryboard: storyboard];
     if (_window && _contentViewController)
-        [_window setContentView: [_contentViewController view]];
+        [_window setContentViewController: _contentViewController];
 }
 - (NSViewController *) contentViewController { return _contentViewController; }
 - (void) setContentViewController: (NSViewController *) controller {

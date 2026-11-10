@@ -18,10 +18,112 @@
 */
 
 #import <Foundation/NSObject.h>
+#import <Foundation/NSGeometry.h>
+@class NSString, NSURL, NSArray;
 
 @protocol NSAccessibility <NSObject>
 
-@required
-@property(getter = isAccessibilityElement) BOOL accessibilityElement;
+// OSXER APPKIT (accessibility): stored metadata; no assistive-service transport yet.
+@property(copy) NSString * accessibilityLabel;
+@property(copy) NSString * accessibilityIdentifier;
+@property(copy) NSString * accessibilityHelp;
+@property(copy) NSString * accessibilityTitle;
+@property(copy) NSString * accessibilityRole;
+@property(copy) NSString * accessibilitySubrole;
+@property(copy) NSString * accessibilityRoleDescription;
+@property(copy) NSString * accessibilityValueDescription;
+@property(copy) NSString * accessibilityPlaceholderValue;
+@property(copy) NSString * accessibilityFilename;
+@property(copy) NSString * accessibilityDocument;
+@property(copy) NSURL * accessibilityURL;
+@property(copy) NSString * accessibilitySelectedText;
+@property(retain) id accessibilityValue;
+@property(retain) id accessibilityMinValue;
+@property(retain) id accessibilityMaxValue;
+@property(assign) id accessibilityParent;
+@property(assign) id accessibilityWindow;
+@property(assign) id accessibilityTopLevelUIElement;
+@property(retain) id accessibilityTitleUIElement;
+@property(copy) NSArray *accessibilityLinkedUIElements;
+@property(copy) NSArray * accessibilityChildren;
+@property(copy) NSArray * accessibilitySelectedChildren;
+@property(copy) NSArray * accessibilityVisibleChildren;
+@property(copy) NSArray * accessibilityContents;
+@property(copy) NSArray * accessibilitySelectedRows;
+@property(copy) NSArray * accessibilitySelectedColumns;
+@property(copy) NSArray * accessibilityRows;
+@property(copy) NSArray * accessibilityColumns;
+@property(copy) NSArray * accessibilityVisibleRows;
+@property(copy) NSArray * accessibilityVisibleColumns;
+@property(copy) NSArray * accessibilityTabs;
+@property(copy) NSArray * accessibilitySelectedCells;
+@property(copy) NSArray * accessibilityVisibleCells;
+@property(getter=isAccessibilityElement) BOOL accessibilityElement;
+@property(getter=isAccessibilityEnabled) BOOL accessibilityEnabled;
+@property(getter=isAccessibilityFocused) BOOL accessibilityFocused;
+@property(getter=isAccessibilitySelected) BOOL accessibilitySelected;
+@property(getter=isAccessibilityExpanded) BOOL accessibilityExpanded;
+@property(getter=isAccessibilityEdited) BOOL accessibilityEdited;
+@property(getter=isAccessibilityRequired) BOOL accessibilityRequired;
+@property(getter=isAccessibilityProtectedContent) BOOL accessibilityProtectedContent;
+@property(getter=accessibilityIndex) NSInteger accessibilityIndex;
+@property(getter=accessibilityNumberOfCharacters) NSInteger accessibilityNumberOfCharacters;
+@property(getter=accessibilityInsertionPointLineNumber) NSInteger accessibilityInsertionPointLineNumber;
+@property(getter=accessibilityFrame) NSRect accessibilityFrame;
+@property(getter=accessibilityActivationPoint) NSPoint accessibilityActivationPoint;
+@property(getter=accessibilitySelectedTextRange) NSRange accessibilitySelectedTextRange;
+@property(getter=accessibilityVisibleCharacterRange) NSRange accessibilityVisibleCharacterRange;
+@end
 
+// OSXER APPKIT (accessibility): legacy and modern access share NSObject receivers.
+@interface NSObject (OSXERAccessibilityProperties) <NSAccessibility>
+@property(copy) NSString * accessibilityLabel;
+@property(copy) NSString * accessibilityIdentifier;
+@property(copy) NSString * accessibilityHelp;
+@property(copy) NSString * accessibilityTitle;
+@property(copy) NSString * accessibilityRole;
+@property(copy) NSString * accessibilitySubrole;
+@property(copy) NSString * accessibilityRoleDescription;
+@property(copy) NSString * accessibilityValueDescription;
+@property(copy) NSString * accessibilityPlaceholderValue;
+@property(copy) NSString * accessibilityFilename;
+@property(copy) NSString * accessibilityDocument;
+@property(copy) NSURL * accessibilityURL;
+@property(copy) NSString * accessibilitySelectedText;
+@property(retain) id accessibilityValue;
+@property(retain) id accessibilityMinValue;
+@property(retain) id accessibilityMaxValue;
+@property(assign) id accessibilityParent;
+@property(assign) id accessibilityWindow;
+@property(assign) id accessibilityTopLevelUIElement;
+@property(retain) id accessibilityTitleUIElement;
+@property(copy) NSArray *accessibilityLinkedUIElements;
+@property(copy) NSArray * accessibilityChildren;
+@property(copy) NSArray * accessibilitySelectedChildren;
+@property(copy) NSArray * accessibilityVisibleChildren;
+@property(copy) NSArray * accessibilityContents;
+@property(copy) NSArray * accessibilitySelectedRows;
+@property(copy) NSArray * accessibilitySelectedColumns;
+@property(copy) NSArray * accessibilityRows;
+@property(copy) NSArray * accessibilityColumns;
+@property(copy) NSArray * accessibilityVisibleRows;
+@property(copy) NSArray * accessibilityVisibleColumns;
+@property(copy) NSArray * accessibilityTabs;
+@property(copy) NSArray * accessibilitySelectedCells;
+@property(copy) NSArray * accessibilityVisibleCells;
+@property(getter=isAccessibilityElement) BOOL accessibilityElement;
+@property(getter=isAccessibilityEnabled) BOOL accessibilityEnabled;
+@property(getter=isAccessibilityFocused) BOOL accessibilityFocused;
+@property(getter=isAccessibilitySelected) BOOL accessibilitySelected;
+@property(getter=isAccessibilityExpanded) BOOL accessibilityExpanded;
+@property(getter=isAccessibilityEdited) BOOL accessibilityEdited;
+@property(getter=isAccessibilityRequired) BOOL accessibilityRequired;
+@property(getter=isAccessibilityProtectedContent) BOOL accessibilityProtectedContent;
+@property(getter=accessibilityIndex) NSInteger accessibilityIndex;
+@property(getter=accessibilityNumberOfCharacters) NSInteger accessibilityNumberOfCharacters;
+@property(getter=accessibilityInsertionPointLineNumber) NSInteger accessibilityInsertionPointLineNumber;
+@property(getter=accessibilityFrame) NSRect accessibilityFrame;
+@property(getter=accessibilityActivationPoint) NSPoint accessibilityActivationPoint;
+@property(getter=accessibilitySelectedTextRange) NSRange accessibilitySelectedTextRange;
+@property(getter=accessibilityVisibleCharacterRange) NSRange accessibilityVisibleCharacterRange;
 @end

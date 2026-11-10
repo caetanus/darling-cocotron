@@ -173,3 +173,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 @end
+
+// OSXER APPKIT (API additions): stored visual state is partial where rendering needs support.
+#import "OSXERAppKitAPI.h"
+#import <AppKit/NSSliderCell.h>
+@implementation NSSlider (OSXERAPIAdditions)
+OSXER_API_OBJECT(NSColor *, trackFillColor, setTrackFillColor, OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+- (NSSliderType)sliderType { return [[self cell] sliderType]; }
+- (void)setSliderType:(NSSliderType)value { [[self cell] setSliderType:value]; [self setNeedsDisplay:YES]; }
++ (instancetype)sliderWithValue:(double)value minValue:(double)min maxValue:(double)max target:(id)target action:(SEL)action {
+    NSSlider *slider = [[[self alloc] initWithFrame:NSMakeRect(0,0,100,21)] autorelease];
+    [slider setMinValue:min]; [slider setMaxValue:max]; [slider setDoubleValue:value]; [slider setTarget:target]; [slider setAction:action]; return slider;
+}
++ (instancetype)sliderWithTarget:(id)target action:(SEL)action { return [self sliderWithValue:0 minValue:0 maxValue:1 target:target action:action]; }
+@end

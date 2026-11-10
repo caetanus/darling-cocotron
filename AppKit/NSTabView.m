@@ -599,3 +599,12 @@ id _NSTabViewFloatingCell = nil;
 }
 
 @end
+
+// OSXER APPKIT (API additions): stored visual state is partial where rendering needs support.
+#import "OSXERAppKitAPI.h"
+#import <AppKit/NSCell.h>
+@implementation NSTabView (OSXERAPIAdditions)
+OSXER_API_SCALAR(NSControlSize, controlSize, setControlSize, NSRegularControlSize)
+- (void)selectNextTabViewItem:(id)sender { NSInteger index = [self indexOfTabViewItem:[self selectedTabViewItem]]; if (index + 1 < [self numberOfTabViewItems]) [self selectTabViewItemAtIndex:index + 1]; }
+- (void)selectPreviousTabViewItem:(id)sender { NSInteger index = [self indexOfTabViewItem:[self selectedTabViewItem]]; if (index > 0) [self selectTabViewItemAtIndex:index - 1]; }
+@end

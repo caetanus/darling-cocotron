@@ -294,3 +294,10 @@ APPKIT_EXPORT NSImageName const NSImageNameTouchBarRecordStopTemplate;
 
 APPKIT_EXPORT NSImageHintKey const NSImageHintInterpolation;
 APPKIT_EXPORT NSImageHintKey const NSImageHintCTM;
+
+// OSXER APPKIT (API additions): public declarations.
+
+@interface NSImage (OSXERAPIAdditions)
+@property(getter=capInsets) NSEdgeInsets capInsets;
+@property NSRect alignmentRect;
+@end

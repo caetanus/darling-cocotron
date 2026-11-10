@@ -103,3 +103,11 @@ typedef enum {
 - (void) tabView: (NSTabView *) tabView
         didSelectTabViewItem: (NSTabViewItem *) item;
 @end
+
+// OSXER APPKIT (API additions): public declarations.
+#import <AppKit/NSCell.h>
+@interface NSTabView (OSXERAPIAdditions)
+@property(getter=controlSize) NSControlSize controlSize;
+- (void)selectNextTabViewItem:(id)sender;
+- (void)selectPreviousTabViewItem:(id)sender;
+@end

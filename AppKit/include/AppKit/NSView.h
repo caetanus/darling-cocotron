@@ -29,6 +29,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSUserInterfaceItemIdentification.h>
 #import <AppKit/NSLayoutConstraint.h>
 #import <AppKit/NSAppearance.h>
+#import <AppKit/NSUserInterfaceLayout.h>
 
 @class NSWindow, NSMenu, NSMenuItem, NSCursor, NSClipView, NSPasteboard,
         NSTextInputContext, NSImage, NSBitmapImageRep, NSScrollView,
@@ -504,4 +505,46 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
         stringForToolTip: (NSToolTipTag) tag
                    point: (NSPoint) point
                 userData: (void *) data;
+@end
+
+// OSXER APPKIT (anchors): cached Foundation factories; frame solving remains partial.
+#import <Foundation/NSLayoutAnchor.h>
+@interface NSView (OSXERAnchors)
+@property(readonly, retain) NSLayoutXAxisAnchor *leadingAnchor;
+@property(readonly, retain) NSLayoutXAxisAnchor *trailingAnchor;
+@property(readonly, retain) NSLayoutXAxisAnchor *leftAnchor;
+@property(readonly, retain) NSLayoutXAxisAnchor *rightAnchor;
+@property(readonly, retain) NSLayoutYAxisAnchor *topAnchor;
+@property(readonly, retain) NSLayoutYAxisAnchor *bottomAnchor;
+@property(readonly, retain) NSLayoutDimension *widthAnchor;
+@property(readonly, retain) NSLayoutDimension *heightAnchor;
+@property(readonly, retain) NSLayoutXAxisAnchor *centerXAnchor;
+@property(readonly, retain) NSLayoutYAxisAnchor *centerYAnchor;
+@property(readonly, retain) NSLayoutYAxisAnchor *firstBaselineAnchor;
+@property(readonly, retain) NSLayoutYAxisAnchor *lastBaselineAnchor;
+@end
+
+// OSXER APPKIT (view API)
+@interface NSView (OSXERViewAPI)
+@property(readonly, retain) NSAppearance *effectiveAppearance;
+@property NSUserInterfaceLayoutDirection userInterfaceLayoutDirection;
+@property BOOL needsUpdateConstraints;
+@property(readonly) BOOL wantsUpdateLayer;
+@property(readonly) NSEdgeInsets safeAreaInsets;
+@property(readonly) NSRect safeAreaRect;
+@property(readonly, retain) NSLayoutGuide *safeAreaLayoutGuide;
+- (void)updateConstraints;
+- (void)updateConstraintsForSubtreeIfNeeded;
+- (void)updateLayer;
+- (void)prepareForReuse;
+- (void)viewDidChangeBackingProperties;
+- (void)viewDidChangeEffectiveAppearance;
+- (NSPoint)convertPointToBacking:(NSPoint)point;
+- (NSPoint)convertPointFromBacking:(NSPoint)point;
+- (NSSize)convertSizeToBacking:(NSSize)size;
+- (NSSize)convertSizeFromBacking:(NSSize)size;
+- (NSRect)convertRectToBacking:(NSRect)rect;
+- (NSRect)convertRectFromBacking:(NSRect)rect;
+- (NSRect)backingAlignedRect:(NSRect)rect options:(NSAlignmentOptions)options;
+- (NSArray *)constraintsAffectingLayoutForOrientation:(NSLayoutConstraintOrientation)orientation;
 @end

@@ -56,6 +56,7 @@ NSString *const NSOutlineViewDisclosureButtonKey =
 // We probably don't want this public, but NSOutlineView needs it, and it would
 // prove invaluable to other subclasses of NSTableView.
 @interface NSTableView (NSTableView_notifications)
+- (void)_setSelectedRowIndexes:(NSIndexSet *)indexes;
 
 - (BOOL) delegateShouldSelectTableColumn: (NSTableColumn *) tableColumn;
 - (BOOL) delegateShouldSelectRow: (NSInteger) row;
@@ -161,6 +162,7 @@ static inline id childOfItemAtIndex(NSOutlineView *self, id item,
         [self setAutosaveExpandedItems: NO];
 
         _editingCellPadding = 10.0;
+        [self setStronglyReferencesItems:YES];
 
         [self invalidateRowCache];
 
@@ -205,6 +207,7 @@ static inline id childOfItemAtIndex(NSOutlineView *self, id item,
     [self setAutosaveExpandedItems: NO];
 
     _editingCellPadding = 10.0;
+    [self setStronglyReferencesItems:YES];
 
     [self invalidateRowCache];
 
@@ -230,11 +233,15 @@ static inline id childOfItemAtIndex(NSOutlineView *self, id item,
 }
 
 - itemAtRow: (NSInteger) row {
+    if (row < 0 || row >= [self numberOfRows]) return nil;
     return (id) NSMapGet(_rowToItem, (void *) row);
 }
 
+// OSXER APPKIT (outline identity): a missing item is not row zero.
 - (NSInteger) rowForItem: (id) item {
-    return (NSInteger) NSMapGet(_itemToRow, item);
+    [self numberOfRows];
+    void *row = NULL;
+    return item && NSMapMember(_itemToRow, item, NULL, &row) ? (NSInteger)row : -1;
 }
 
 - parentForItem: item {
@@ -469,24 +476,26 @@ static inline id childOfItemAtIndex(NSOutlineView *self, id item,
 }
 
 - (void) reloadData {
+    NSArray *previousItems = _osxerStrongItems ? [NSAllMapTableValues(_rowToItem) retain] : nil;
     [self _resetMapTables];
     [self invalidateRowCache];
-    [super reloadData];
+    @try { [super reloadData]; } @finally { [previousItems release]; }
 }
 
 - (void) reloadItem: (id) item reloadChildren: (BOOL) reloadChildren {
-    [self _resetMapTables];
-    [self invalidateRowCache];
-    [self noteNumberOfRowsChanged];
-    [self setNeedsDisplay: YES];
+    // OSXER APPKIT (outline reload): recycle views and preserve retained item lifetimes.
+    [self reloadData];
 }
 
 - (void) reloadItem: (id) item {
     [self reloadItem: item reloadChildren: NO];
 }
 
+// OSXER APPKIT (outline drop): preserve the validator's target; drag feedback is partial.
 - (void) setDropItem: (id) item dropChildIndex: (NSInteger) index {
-    NSUnimplementedMethod();
+    if (index < -1) [NSException raise:NSInvalidArgumentException format:@"Invalid child drop index"];
+    _osxerDropItem = item; _osxerDropChildIndex = index;
+    [self setNeedsDisplay:YES];
 }
 
 - (BOOL) shouldCollapseAutoExpandedItemsForDeposited: (BOOL) collapse {
@@ -606,6 +615,8 @@ static void loadItemIntoMapTables(NSOutlineView *self, id item,
         while ((key = NSNextHashEnumeratorItem(&state)) != NULL)
             NSMapRemove(_itemToExpansionState, key);
     }
+    // OSXER APPKIT (outline lifetime): release the per-reload identity set.
+    NSFreeHashTable(removeItems);
 }
 
 - (NSInteger) numberOfRows {
@@ -995,4 +1006,61 @@ static void loadItemIntoMapTables(NSOutlineView *self, id item,
                            item: [self itemAtRow: row]];
 }
 
+@end
+
+// OSXER APPKIT (outline API): rebuild flattened rows through the data source contract.
+@implementation NSOutlineView (OSXEROutlineAPI)
+- (BOOL)stronglyReferencesItems { return _osxerStrongItems; }
+- (void)setStronglyReferencesItems:(BOOL)strong {
+    if (_osxerStrongItems == strong) return;
+    NSMapTable *rows = NSCreateMapTable(NSIntegerMapKeyCallBacks,
+        strong ? NSObjectMapValueCallBacks : NSNonOwnedPointerMapValueCallBacks, 0);
+    NSMapTable *expanded = NSCreateMapTable(strong ? NSObjectMapKeyCallBacks : NSNonOwnedPointerOrNullMapKeyCallBacks,
+        NSIntegerMapValueCallBacks, 0);
+    NSMapEnumerator iterator = NSEnumerateMapTable(_rowToItem);
+    void *key, *value;
+    while (NSNextMapEnumeratorPair(&iterator, &key, &value)) NSMapInsert(rows, key, value);
+    NSEndMapTableEnumeration(&iterator);
+    iterator = NSEnumerateMapTable(_itemToExpansionState);
+    while (NSNextMapEnumeratorPair(&iterator, &key, &value)) NSMapInsert(expanded, key, value);
+    NSEndMapTableEnumeration(&iterator);
+    NSFreeMapTable(_rowToItem); _rowToItem = rows;
+    NSFreeMapTable(_itemToExpansionState); _itemToExpansionState = expanded;
+    _osxerStrongItems = strong;
+}
+- (NSInteger)childIndexForItem:(id)item {
+    if (!item) return NSNotFound;
+    id parent = [self parentForItem:item];
+    NSInteger count = [_dataSource outlineView:self numberOfChildrenOfItem:parent];
+    for (NSInteger i = 0; i < count; ++i)
+        if ([_dataSource outlineView:self child:i ofItem:parent] == item) return i;
+    return NSNotFound;
+}
+- (void)_osxerReloadItemsPreservingSelection {
+    NSMutableArray *selected = [NSMutableArray array];
+    for (NSUInteger row = [_selectedRowIndexes firstIndex]; row != NSNotFound; row = [_selectedRowIndexes indexGreaterThanIndex:row]) {
+        id item = NSMapGet(_rowToItem, (void *)row); if (item) [selected addObject:item];
+    }
+    [self reloadData];
+    NSMutableIndexSet *indexes = [NSMutableIndexSet indexSet];
+    for (id item in selected) { NSInteger row = [self rowForItem:item]; if (row >= 0) [indexes addIndex:row]; }
+    [self _setSelectedRowIndexes:indexes];
+}
+- (void)insertItemsAtIndexes:(NSIndexSet *)indexes inParent:(id)parent withAnimation:(NSTableViewAnimationOptions)animation {
+    NSInteger count = [_dataSource outlineView:self numberOfChildrenOfItem:parent];
+    if (!indexes || ([indexes count] && [indexes lastIndex] >= count))
+        [NSException raise:NSRangeException format:@"Invalid outline insertion"];
+    [self _osxerReloadItemsPreservingSelection];
+}
+- (void)removeItemsAtIndexes:(NSIndexSet *)indexes inParent:(id)parent withAnimation:(NSTableViewAnimationOptions)animation {
+    NSInteger oldCount = [_dataSource outlineView:self numberOfChildrenOfItem:parent] + [indexes count];
+    if (!indexes || ([indexes count] && [indexes lastIndex] >= oldCount))
+        [NSException raise:NSRangeException format:@"Invalid outline removal"];
+    [self _osxerReloadItemsPreservingSelection];
+}
+- (void)moveItemAtIndex:(NSInteger)from inParent:(id)oldParent toIndex:(NSInteger)to inParent:(id)newParent {
+    NSInteger count = [_dataSource outlineView:self numberOfChildrenOfItem:newParent];
+    if (from < 0 || to < 0 || to >= count) [NSException raise:NSRangeException format:@"Invalid outline move"];
+    [self _osxerReloadItemsPreservingSelection];
+}
 @end

@@ -45,6 +45,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSView.h>
 // OSXER NIB (layout guide ownership)
 #import <AppKit/NSLayoutGuide.h>
+#import <objc/runtime.h>
+@interface NSLayoutGuide (OSXERSafeArea)
+- (void)_osxerSetSafeArea:(BOOL)value;
+@end
 #import <AppKit/NSViewBackingLayer.h>
 #import <AppKit/NSWindow-Private.h>
 #import <CoreGraphics/CGWindow.h>
@@ -233,7 +237,10 @@ typedef struct __VFlags {
         NSLayoutGuide *margins = [coder decodeObjectForKey:@"IBNSLayoutMarginsGuide"];
         NSLayoutGuide *safeArea = [coder decodeObjectForKey:@"IBNSSafeAreaLayoutGuide"];
         if (margins) [self addLayoutGuide:margins];
-        if (safeArea) [self addLayoutGuide:safeArea];
+        if (safeArea) {
+            [self addLayoutGuide:safeArea]; [safeArea _osxerSetSafeArea:YES];
+            objc_setAssociatedObject(self, @selector(safeAreaLayoutGuide), safeArea, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        }
         // During recursive decoding, item owners/superviews may still be initializing.
         // Restore the stored relationship without running activation's ancestry validation.
         _osxerConstraints = [[coder decodeObjectForKey:@"NSViewConstraints"] mutableCopy];
@@ -741,8 +748,10 @@ static inline void buildTransformsIfNeeded(NSView *self) {
     return NO;
 }
 
+// OSXER APPKIT (view ancestry): includes the receiver and the argument themselves.
 - (NSView *) ancestorSharedWithView: (NSView *) view {
-    NSUnimplementedMethod();
+    for (NSView *ancestor = self; ancestor; ancestor = [ancestor superview])
+        if ([view isDescendantOf:ancestor]) return ancestor;
     return nil;
 }
 
@@ -2572,7 +2581,8 @@ static NSView *viewBeingPrinted = nil;
             [[NSColor yellowColor] set];
             NSRectFill(rect);
         } else {
-            [self drawRect: rect];
+            if ([self wantsLayer] && [self wantsUpdateLayer]) [self updateLayer];
+            else [self drawRect: rect];
             if (NSShowAllViews) {
                 [[self _borderColorForNSShowAllViews] set];
                 NSFrameRect(rect);
@@ -3066,4 +3076,107 @@ static NSView *viewBeingPrinted = nil;
     }
 }
 
+@end
+
+// OSXER APPKIT (anchors): no upward dependency from Foundation to AppKit.
+#import "OSXERAppKitAPI.h"
+@implementation NSView (OSXERAnchors)
+- (NSLayoutXAxisAnchor *)leadingAnchor { return OSXERAppKitAnchor(self, _cmd, [NSLayoutXAxisAnchor class], NSLayoutAttributeLeading); }
+- (NSLayoutXAxisAnchor *)trailingAnchor { return OSXERAppKitAnchor(self, _cmd, [NSLayoutXAxisAnchor class], NSLayoutAttributeTrailing); }
+- (NSLayoutXAxisAnchor *)leftAnchor { return OSXERAppKitAnchor(self, _cmd, [NSLayoutXAxisAnchor class], NSLayoutAttributeLeft); }
+- (NSLayoutXAxisAnchor *)rightAnchor { return OSXERAppKitAnchor(self, _cmd, [NSLayoutXAxisAnchor class], NSLayoutAttributeRight); }
+- (NSLayoutYAxisAnchor *)topAnchor { return OSXERAppKitAnchor(self, _cmd, [NSLayoutYAxisAnchor class], NSLayoutAttributeTop); }
+- (NSLayoutYAxisAnchor *)bottomAnchor { return OSXERAppKitAnchor(self, _cmd, [NSLayoutYAxisAnchor class], NSLayoutAttributeBottom); }
+- (NSLayoutDimension *)widthAnchor { return OSXERAppKitAnchor(self, _cmd, [NSLayoutDimension class], NSLayoutAttributeWidth); }
+- (NSLayoutDimension *)heightAnchor { return OSXERAppKitAnchor(self, _cmd, [NSLayoutDimension class], NSLayoutAttributeHeight); }
+- (NSLayoutXAxisAnchor *)centerXAnchor { return OSXERAppKitAnchor(self, _cmd, [NSLayoutXAxisAnchor class], NSLayoutAttributeCenterX); }
+- (NSLayoutYAxisAnchor *)centerYAnchor { return OSXERAppKitAnchor(self, _cmd, [NSLayoutYAxisAnchor class], NSLayoutAttributeCenterY); }
+- (NSLayoutYAxisAnchor *)firstBaselineAnchor { return OSXERAppKitAnchor(self, _cmd, [NSLayoutYAxisAnchor class], NSLayoutAttributeFirstBaseline); }
+- (NSLayoutYAxisAnchor *)lastBaselineAnchor { return OSXERAppKitAnchor(self, _cmd, [NSLayoutYAxisAnchor class], NSLayoutAttributeLastBaseline); }
+@end
+
+// OSXER APPKIT (view API): lifecycle hooks and backing geometry.
+@implementation NSView (OSXERViewAPI)
+OSXER_API_SCALAR(NSUserInterfaceLayoutDirection, userInterfaceLayoutDirection, setUserInterfaceLayoutDirection, NSUserInterfaceLayoutDirectionLeftToRight)
+OSXER_API_SCALAR(BOOL, needsUpdateConstraints, setNeedsUpdateConstraints, NO)
+- (void)updateConstraints { [self setNeedsUpdateConstraints:NO]; }
+- (void)updateConstraintsForSubtreeIfNeeded {
+    for (NSView *view in [self subviews]) [view updateConstraintsForSubtreeIfNeeded];
+    if ([self needsUpdateConstraints]) [self updateConstraints];
+}
+- (BOOL)wantsUpdateLayer { return NO; }
+- (void)updateLayer { /* Subclass hook; backing layer compositing remains partial. */ }
+- (void)prepareForReuse { /* Default reusable views have no transient state to reset. */ }
+- (void)viewDidChangeBackingProperties { }
+- (void)viewDidChangeEffectiveAppearance { }
+- (NSAppearance *)effectiveAppearance {
+    return [self appearance] ?: [[self superview] effectiveAppearance] ?:
+        [[self window] effectiveAppearance] ?: [NSApp effectiveAppearance];
+}
+- (NSEdgeInsets)safeAreaInsets {
+    // Stored frame layout has no occlusion solver; the current bounds are unobscured.
+    return NSEdgeInsetsZero;
+}
+- (NSRect)safeAreaRect {
+    NSEdgeInsets insets = [self safeAreaInsets];
+    NSRect rect = [self bounds];
+    rect.origin.x += insets.left; rect.origin.y += [self isFlipped] ? insets.top : insets.bottom;
+    rect.size.width = MAX(0, rect.size.width - insets.left - insets.right);
+    rect.size.height = MAX(0, rect.size.height - insets.top - insets.bottom);
+    return rect;
+}
+- (NSLayoutGuide *)safeAreaLayoutGuide {
+    NSLayoutGuide *guide = objc_getAssociatedObject(self, _cmd);
+    if (!guide) {
+        guide = [[[NSLayoutGuide alloc] init] autorelease];
+        [guide setIdentifier:@"NSViewSafeAreaLayoutGuide"];
+        [guide _osxerSetSafeArea:YES];
+        [self addLayoutGuide:guide];
+        objc_setAssociatedObject(self, _cmd, guide, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    return guide;
+}
+- (NSPoint)convertPointToBacking:(NSPoint)point {
+    NSRect result = [[self window] convertRectToBacking:[self convertRect:NSMakeRect(point.x, point.y, 0, 0) toView:nil]];
+    return [self window] ? result.origin : point;
+}
+- (NSPoint)convertPointFromBacking:(NSPoint)point {
+    if (![self window]) return point;
+    NSRect rect = [[self window] convertRectFromBacking:NSMakeRect(point.x, point.y, 0, 0)];
+    return [self convertPoint:rect.origin fromView:nil];
+}
+- (NSSize)convertSizeToBacking:(NSSize)size {
+    if (![self window]) return size;
+    size = [self convertSize:size toView:nil];
+    CGFloat scale = [[self window] backingScaleFactor];
+    return NSMakeSize(size.width * scale, size.height * scale);
+}
+- (NSSize)convertSizeFromBacking:(NSSize)size {
+    if (![self window]) return size;
+    CGFloat scale = [[self window] backingScaleFactor];
+    return [self convertSize:NSMakeSize(size.width / scale, size.height / scale) fromView:nil];
+}
+- (NSRect)convertRectToBacking:(NSRect)rect {
+    return [self window] ? [[self window] convertRectToBacking:[self convertRect:rect toView:nil]] : rect;
+}
+- (NSRect)convertRectFromBacking:(NSRect)rect {
+    return [self window] ? [self convertRect:[[self window] convertRectFromBacking:rect] fromView:nil] : rect;
+}
+- (NSRect)backingAlignedRect:(NSRect)rect options:(NSAlignmentOptions)options {
+    return [self convertRectFromBacking:NSIntegralRectWithOptions([self convertRectToBacking:rect], options)];
+}
+- (NSArray *)constraintsAffectingLayoutForOrientation:(NSLayoutConstraintOrientation)orientation {
+    // Model inspection only: a solver would additionally discover indirect influences.
+    NSMutableArray *result = [NSMutableArray array];
+    for (NSView *owner = self; owner; owner = [owner superview])
+        for (NSLayoutConstraint *constraint in [owner constraints]) {
+            NSLayoutAttribute a = [constraint firstItem] == self ? [constraint firstAttribute] :
+                ([constraint secondItem] == self ? [constraint secondAttribute] : NSLayoutAttributeNotAnAttribute);
+            BOOL horizontal = a == NSLayoutAttributeLeft || a == NSLayoutAttributeRight ||
+                a == NSLayoutAttributeLeading || a == NSLayoutAttributeTrailing ||
+                a == NSLayoutAttributeWidth || a == NSLayoutAttributeCenterX;
+            if (a && horizontal == (orientation == NSLayoutConstraintOrientationHorizontal)) [result addObject:constraint];
+        }
+    return result;
+}
 @end

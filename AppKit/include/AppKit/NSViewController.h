@@ -14,6 +14,10 @@
     NSStoryboard *_storyboard;
     NSDictionary *_externalObjectsForViewLoading;
     NSArray *_externalSelfIdentifiers;
+    // OSXER APPKIT (controller containment): the child holds a nonretained parent.
+    NSMutableArray *_osxerChildren;
+    NSViewController *_osxerParent;
+    BOOL _osxerDidLoadView;
 }
 
 - initWithNibName: (NSString *) name bundle: (NSBundle *) bundle;
@@ -45,4 +49,22 @@
                  didCommitSelector: (SEL) didCommitSelector
                        contextInfo: (void *) contextInfo;
 
+@end
+
+// OSXER APPKIT (controller lifecycle): presentation/transition animation remains partial.
+@interface NSViewController (OSXERControllerAPI)
+@property NSSize preferredContentSize;
+@property(readonly) NSViewController *parentViewController;
+@property(readonly, copy) NSArray *childViewControllers;
+- (void)addChildViewController:(NSViewController *)child;
+- (void)insertChildViewController:(NSViewController *)child atIndex:(NSInteger)index;
+- (void)removeChildViewControllerAtIndex:(NSInteger)index;
+- (void)removeFromParentViewController;
+- (void)viewDidLoad;
+- (void)viewWillAppear;
+- (void)viewDidAppear;
+- (void)viewWillDisappear;
+- (void)viewWillLayout;
+- (void)viewDidLayout;
+- (void)updateViewConstraints;
 @end

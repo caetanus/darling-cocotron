@@ -1152,3 +1152,19 @@ static Class _rulerViewClass = nil;
 }
 
 @end
+
+// OSXER APPKIT (API additions): stored visual state is partial where rendering needs support.
+#import "OSXERAppKitAPI.h"
+#import <AppKit/NSScroller.h>
+@implementation NSScrollView (OSXERAPIAdditions)
+OSXER_API_SCALAR(NSScrollElasticity, horizontalScrollElasticity, setHorizontalScrollElasticity, NSScrollElasticityAutomatic)
+OSXER_API_SCALAR(NSScrollElasticity, verticalScrollElasticity, setVerticalScrollElasticity, NSScrollElasticityAutomatic)
+OSXER_API_SCALAR(BOOL, predominantAxisScrolling, setPredominantAxisScrolling, YES)
+OSXER_API_SCALAR(NSEdgeInsets, contentInsets, setContentInsets, NSEdgeInsetsZero)
+OSXER_API_SCALAR(NSEdgeInsets, scrollerInsets, setScrollerInsets, NSEdgeInsetsZero)
+OSXER_API_SCALAR(BOOL, automaticallyAdjustsContentInsets, setAutomaticallyAdjustsContentInsets, YES)
+- (NSScrollerStyle)scrollerStyle { NSNumber *value = objc_getAssociatedObject(self, _cmd); return value ? [value integerValue] : [NSScroller preferredScrollerStyle]; }
+- (void)setScrollerStyle:(NSScrollerStyle)value { objc_setAssociatedObject(self, @selector(scrollerStyle), @(value), OBJC_ASSOCIATION_RETAIN_NONATOMIC); [[self horizontalScroller] setScrollerStyle:value]; [[self verticalScroller] setScrollerStyle:value]; [self tile]; }
+- (NSScrollerKnobStyle)scrollerKnobStyle { return [objc_getAssociatedObject(self, _cmd) integerValue]; }
+- (void)setScrollerKnobStyle:(NSScrollerKnobStyle)value { objc_setAssociatedObject(self, @selector(scrollerKnobStyle), @(value), OBJC_ASSOCIATION_RETAIN_NONATOMIC); [[self horizontalScroller] setKnobStyle:value]; [[self verticalScroller] setKnobStyle:value]; }
+@end

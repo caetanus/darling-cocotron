@@ -75,3 +75,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                           action: (SEL) action;
 
 @end
+
+// OSXER APPKIT (API additions): public declarations.
+
+@interface NSButton (OSXERAPIAdditions)
+@property(retain) NSColor * bezelColor;
+@property(retain) NSColor * contentTintColor;
+@property(getter=imageHugsTitle) BOOL imageHugsTitle;
+@property NSImageScaling imageScaling;
++ (instancetype)buttonWithTitle:(NSString *)title image:(NSImage *)image target:(id)target action:(SEL)action;
++ (instancetype)checkboxWithTitle:(NSString *)title target:(id)target action:(SEL)action;
++ (instancetype)radioButtonWithTitle:(NSString *)title target:(id)target action:(SEL)action;
+@end

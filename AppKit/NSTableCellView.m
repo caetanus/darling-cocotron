@@ -52,3 +52,12 @@
 }
 - (void)dealloc { [_objectValue release]; [super dealloc]; }
 @end
+
+// OSXER APPKIT (API additions): stored visual state is partial where rendering needs support.
+#import "OSXERAppKitAPI.h"
+#import <AppKit/NSTableView.h>
+@implementation NSTableCellView (OSXERAPIAdditions)
+OSXER_API_SCALAR(NSBackgroundStyle, backgroundStyle, setBackgroundStyle, NSBackgroundStyleLight)
+OSXER_API_SCALAR(NSTableViewRowSizeStyle, rowSizeStyle, setRowSizeStyle, NSTableViewRowSizeStyleDefault)
+
+@end

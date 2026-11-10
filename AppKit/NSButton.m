@@ -150,9 +150,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return [_cell showsBorderOnlyWhileMouseInside];
 }
 
-- (void) getPeriodicDelay: (float *) delay interval: (float *) interval {
-    NSUnimplementedMethod();
-}
+// OSXER APPKIT (button forwarding): preserve the cell's periodic configuration.
+- (void) getPeriodicDelay: (float *) delay interval: (float *) interval { [_cell getPeriodicDelay:delay interval:interval]; }
 
 - (void) setTransparent: (BOOL) value {
     [_cell setTransparent: value];
@@ -240,9 +239,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     NSUnimplementedMethod();
 }
 
-- (void) setPeriodicDelay: (float) delay interval: (float) interval {
-    NSUnimplementedMethod();
-}
+- (void) setPeriodicDelay: (float) delay interval: (float) interval { [_cell setPeriodicDelay:delay interval:interval]; }
 
 - (void) highlight: (BOOL) value {
     [self lockFocus];
@@ -320,4 +317,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     }
 }
 
+@end
+
+// OSXER APPKIT (API additions): stored visual state is partial where rendering needs support.
+#import "OSXERAppKitAPI.h"
+
+@implementation NSButton (OSXERAPIAdditions)
+OSXER_API_OBJECT(NSColor *, bezelColor, setBezelColor, OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+OSXER_API_OBJECT(NSColor *, contentTintColor, setContentTintColor, OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+OSXER_API_SCALAR(BOOL, imageHugsTitle, setImageHugsTitle, NO)
+- (NSImageScaling)imageScaling { return [[self cell] imageScaling]; }
+- (void)setImageScaling:(NSImageScaling)value { [[self cell] setImageScaling:value]; [self setNeedsDisplay:YES]; }
++ (instancetype)buttonWithTitle:(NSString *)title image:(NSImage *)image target:(id)target action:(SEL)action {
+    NSButton *button = [self buttonWithTitle:title target:target action:action]; [button setImage:image]; [button sizeToFit]; return button;
+}
++ (instancetype)checkboxWithTitle:(NSString *)title target:(id)target action:(SEL)action {
+    NSButton *button = [self buttonWithTitle:title target:target action:action]; [button setButtonType:NSSwitchButton]; [button sizeToFit]; return button;
+}
++ (instancetype)radioButtonWithTitle:(NSString *)title target:(id)target action:(SEL)action {
+    NSButton *button = [self buttonWithTitle:title target:target action:action]; [button setButtonType:NSRadioButton]; [button sizeToFit]; return button;
+}
 @end

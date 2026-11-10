@@ -56,3 +56,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) scrollToPoint: (NSPoint) point;
 
 @end
+
+// OSXER APPKIT (API additions): public declarations.
+
+@interface NSClipView (OSXERAPIAdditions)
+@property(getter=contentInsets) NSEdgeInsets contentInsets;
+@property(getter=automaticallyAdjustsContentInsets) BOOL automaticallyAdjustsContentInsets;
+- (NSRect)constrainBoundsRect:(NSRect)rect;
+@end

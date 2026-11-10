@@ -125,3 +125,10 @@ typedef NSString *NSToolbarIdentifier;
 - (void) toolbarDidRemoveItem: (NSNotification *) note;
 
 @end
+
+// OSXER APPKIT (API additions): public declarations.
+
+@interface NSToolbar (OSXERAPIAdditions)
+@property(getter=allowsExtensionItems) BOOL allowsExtensionItems;
+
+@end

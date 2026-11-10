@@ -23,6 +23,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSOutlineView.h>
 #import <AppKit/NSSavePanel.h>
+#import "../OSXERAppKitAPI.h"
 #import <AppKit/NSScrollView.h>
 #import <AppKit/NSTextField.h>
 #import <AppKit/NSView.h>
@@ -533,8 +534,9 @@ static NSSavePanel *_newPanel = nil;
     _accessoryView = view;
 }
 
+// OSXER APPKIT (panel options): stored; directory-creation UI is not implemented.
 - (void) setCanCreateDirectories: (BOOL) value {
-    NSUnimplementedMethod();
+    objc_setAssociatedObject(self, @selector(canCreateDirectories), @(value), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 - (void) setAllowedFileTypes: (NSArray *) value {
@@ -615,4 +617,14 @@ static NSSavePanel *_newPanel = nil;
     [pool release];
 }
 
+@end
+
+// OSXER APPKIT (panel API): public actions use the existing panel validation path.
+@implementation NSSavePanel (OSXERPanelAPI)
+- (BOOL)canCreateDirectories { NSNumber *value = objc_getAssociatedObject(self, _cmd); return value ? [value boolValue] : YES; }
+- (BOOL)allowsOtherFileTypes { return _allowsOtherFileTypes; }
+- (BOOL)isExpanded { return YES; }
+- (void)ok:(id)sender { [self _selectFile:sender]; }
+- (void)cancel:(id)sender { [self _cancel:sender]; }
+- (void)validateVisibleColumns { [_outlineView reloadData]; }
 @end

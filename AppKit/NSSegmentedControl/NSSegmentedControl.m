@@ -212,3 +212,22 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return [NSSet setWithObject: @"cell.selectedSegment"];
 }
 @end
+
+// OSXER APPKIT (API additions): stored visual state is partial where rendering needs support.
+#import "../OSXERAppKitAPI.h"
+
+@implementation NSSegmentedControl (OSXERAPIAdditions)
+OSXER_API_SCALAR(BOOL, isSpringLoaded, setSpringLoaded, NO)
++ (instancetype)segmentedControlWithLabels:(NSArray *)labels trackingMode:(NSSegmentSwitchTracking)mode target:(id)target action:(SEL)action {
+    NSSegmentedControl *control = [[[self alloc] initWithFrame:NSZeroRect] autorelease];
+    [control setSegmentCount:[labels count]]; [control setTrackingMode:mode]; [control setTarget:target]; [control setAction:action];
+    for (NSUInteger i=0; i<[labels count]; ++i) [control setLabel:[labels objectAtIndex:i] forSegment:i];
+    [control sizeToFit]; return control;
+}
++ (instancetype)segmentedControlWithImages:(NSArray *)images trackingMode:(NSSegmentSwitchTracking)mode target:(id)target action:(SEL)action {
+    NSSegmentedControl *control = [[[self alloc] initWithFrame:NSZeroRect] autorelease];
+    [control setSegmentCount:[images count]]; [control setTrackingMode:mode]; [control setTarget:target]; [control setAction:action];
+    for (NSUInteger i=0; i<[images count]; ++i) [control setImage:[images objectAtIndex:i] forSegment:i];
+    [control sizeToFit]; return control;
+}
+@end

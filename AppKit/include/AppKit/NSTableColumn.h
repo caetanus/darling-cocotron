@@ -83,3 +83,10 @@ enum {
 - (void) _sort;
 
 @end
+
+// OSXER APPKIT (API additions): public declarations.
+
+@interface NSTableColumn (OSXERAPIAdditions)
+@property(copy) NSString *title;
+- (void)sizeToFit;
+@end

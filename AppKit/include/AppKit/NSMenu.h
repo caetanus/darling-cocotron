@@ -126,3 +126,13 @@ APPKIT_EXPORT const NSNotificationName NSMenuDidEndTrackingNotification;
         shouldCancel: (BOOL) shouldCancel;
 
 @end
+
+// OSXER APPKIT (API additions): public declarations.
+
+@class NSFont;
+@interface NSMenu (OSXERAPIAdditions)
+@property(retain) NSFont * font;
+@property(getter=minimumWidth) CGFloat minimumWidth;
+@property(getter=allowsContextMenuPlugIns) BOOL allowsContextMenuPlugIns;
+- (void)performActionForItemAtIndex:(NSInteger)index;
+@end

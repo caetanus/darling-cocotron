@@ -128,3 +128,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 @end
+
+// OSXER APPKIT (API additions): stored visual state is partial where rendering needs support.
+#import "OSXERAppKitAPI.h"
+
+@implementation NSImageView (OSXERAPIAdditions)
+OSXER_API_OBJECT(NSColor *, contentTintColor, setContentTintColor, OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+
+@end

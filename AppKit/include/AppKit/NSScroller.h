@@ -54,6 +54,8 @@ typedef NS_ENUM(NSInteger, NSScrollerStyle) {
 
 typedef NSUInteger NSUsableScrollerParts;
 
+// OSXER APPKIT (scroller appearance)
+typedef NS_ENUM(NSInteger, NSScrollerKnobStyle) { NSScrollerKnobStyleDefault = 0, NSScrollerKnobStyleDark, NSScrollerKnobStyleLight };
 @interface NSScroller : NSControl {
     id _target;
     SEL _action;
@@ -106,4 +108,14 @@ typedef NSUInteger NSUsableScrollerParts;
 
 // OSXER APPKIT (public compatibility)
 - (void) setKnobProportion:(CGFloat)proportion;
+@end
+
+// OSXER APPKIT (API additions): public declarations.
+
+@interface NSScroller (OSXERAPIAdditions)
+@property(getter=knobStyle) NSScrollerKnobStyle knobStyle;
+@property(getter=controlTint) NSControlTint controlTint;
++ (CGFloat)scrollerWidthForControlSize:(NSControlSize)size;
++ (CGFloat)scrollerWidthForControlSize:(NSControlSize)size scrollerStyle:(NSScrollerStyle)style;
++ (BOOL)isCompatibleWithOverlayScrollers;
 @end

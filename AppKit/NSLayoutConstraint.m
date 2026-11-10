@@ -311,6 +311,8 @@ static NSLayoutConstraint *OSXERVFLMake(id first, NSLayoutAttribute a1, OSXERVFL
 - (void)setNeedsLayout:(BOOL)flag { _osxerNeedsLayout = flag; if (flag) [self setNeedsDisplay:YES]; }
 - (void)layout { _osxerNeedsLayout = NO; }
 - (void)layoutSubtreeIfNeeded {
+    // OSXER APPKIT (constraint lifecycle): subclass updates precede frame layout.
+    [self updateConstraintsForSubtreeIfNeeded];
     if ([self needsLayout]) [self layout];
     for (NSView *child in [self subviews]) [child layoutSubtreeIfNeeded];
 }

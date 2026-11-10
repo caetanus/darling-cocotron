@@ -746,3 +746,12 @@ extern NSSize _NSToolbarIconSizeSmall;
 
 @implementation NSToolbarSeparatorItem
 @end
+
+// OSXER APPKIT (API additions): stored visual state is partial where rendering needs support.
+#import "../OSXERAppKitAPI.h"
+
+@implementation NSToolbarItem (OSXERAPIAdditions)
+OSXER_API_SCALAR(BOOL, isBordered, setBordered, NO)
+OSXER_API_SCALAR(BOOL, isNavigational, setNavigational, NO)
+
+@end

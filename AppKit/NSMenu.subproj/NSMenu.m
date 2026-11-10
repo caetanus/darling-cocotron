@@ -516,3 +516,16 @@ BOOL itemIsEnabled(NSMenuItem *item) {
 }
 
 @end
+
+// OSXER APPKIT (API additions): stored visual state is partial where rendering needs support.
+#import "../OSXERAppKitAPI.h"
+
+@implementation NSMenu (OSXERAPIAdditions)
+OSXER_API_OBJECT(NSFont *, font, setFont, OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+OSXER_API_SCALAR(CGFloat, minimumWidth, setMinimumWidth, 0)
+OSXER_API_SCALAR(BOOL, allowsContextMenuPlugIns, setAllowsContextMenuPlugIns, YES)
+- (void)performActionForItemAtIndex:(NSInteger)index {
+    NSMenuItem *item = [self itemAtIndex:index];
+    if ([item isEnabled]) [NSApp sendAction:[item action] to:[item target] from:item];
+}
+@end

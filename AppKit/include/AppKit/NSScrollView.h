@@ -29,6 +29,8 @@ APPKIT_EXPORT NSString *const NSScrollViewDidEndLiveScrollNotification;
 APPKIT_EXPORT NSString *const NSScrollViewWillStartLiveScrollNotification;
 APPKIT_EXPORT NSString *const NSScrollViewDidLiveScrollNotification;
 
+// OSXER APPKIT (scroll elasticity): stored; rubber-band compositing is not implemented.
+typedef NS_ENUM(NSInteger, NSScrollElasticity) { NSScrollElasticityAutomatic = 0, NSScrollElasticityNone, NSScrollElasticityAllowed };
 @interface NSScrollView : NSView {
     NSClipView *_clipView;
     NSClipView *_headerClipView;
@@ -147,4 +149,17 @@ APPKIT_EXPORT NSString *const NSScrollViewDidLiveScrollNotification;
 - (void) tile;
 - (void) reflectScrolledClipView: (NSClipView *) clipView;
 
+@end
+
+// OSXER APPKIT (API additions): public declarations.
+#import <AppKit/NSScroller.h>
+@interface NSScrollView (OSXERAPIAdditions)
+@property(getter=horizontalScrollElasticity) NSScrollElasticity horizontalScrollElasticity;
+@property(getter=verticalScrollElasticity) NSScrollElasticity verticalScrollElasticity;
+@property(getter=predominantAxisScrolling) BOOL predominantAxisScrolling;
+@property(getter=contentInsets) NSEdgeInsets contentInsets;
+@property(getter=scrollerInsets) NSEdgeInsets scrollerInsets;
+@property(getter=automaticallyAdjustsContentInsets) BOOL automaticallyAdjustsContentInsets;
+@property NSScrollerStyle scrollerStyle;
+@property NSScrollerKnobStyle scrollerKnobStyle;
 @end

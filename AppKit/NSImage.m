@@ -1656,3 +1656,15 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
 }
 
 @end
+
+// OSXER APPKIT (API additions): stored visual state is partial where rendering needs support.
+#import "OSXERAppKitAPI.h"
+
+@implementation NSImage (OSXERAPIAdditions)
+OSXER_API_SCALAR(NSEdgeInsets, capInsets, setCapInsets, NSEdgeInsetsZero)
+- (NSRect)alignmentRect {
+    NSValue *value = objc_getAssociatedObject(self, _cmd);
+    return value ? [value rectValue] : NSMakeRect(0,0,[self size].width,[self size].height);
+}
+- (void)setAlignmentRect:(NSRect)rect { objc_setAssociatedObject(self, @selector(alignmentRect), [NSValue valueWithRect:rect], OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
+@end

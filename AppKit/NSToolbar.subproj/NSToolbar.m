@@ -664,3 +664,11 @@ static BOOL isStandardItemIdentifier(NSString *identifier) {
 }
 
 @end
+
+// OSXER APPKIT (API additions): stored visual state is partial where rendering needs support.
+#import "../OSXERAppKitAPI.h"
+
+@implementation NSToolbar (OSXERAPIAdditions)
+OSXER_API_SCALAR(BOOL, allowsExtensionItems, setAllowsExtensionItems, NO)
+
+@end

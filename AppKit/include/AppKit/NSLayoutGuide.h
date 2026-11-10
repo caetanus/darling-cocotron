@@ -27,9 +27,26 @@
     NSView *_owningView;
     NSArray *_osxerSystemConstraints;
     BOOL _osxerLockedToOwner;
+    // OSXER APPKIT (safe area): frame tracks the owning view.
+    BOOL _osxerSafeArea;
 }
 @property(copy) NSString *identifier;
 @property(assign) NSView *owningView;
 @property(readonly) NSRect frame;
 
+@end
+
+// OSXER APPKIT (anchors): cached Foundation factories; frame solving remains partial.
+#import <Foundation/NSLayoutAnchor.h>
+@interface NSLayoutGuide (OSXERAnchors)
+@property(readonly, retain) NSLayoutXAxisAnchor *leadingAnchor;
+@property(readonly, retain) NSLayoutXAxisAnchor *trailingAnchor;
+@property(readonly, retain) NSLayoutXAxisAnchor *leftAnchor;
+@property(readonly, retain) NSLayoutXAxisAnchor *rightAnchor;
+@property(readonly, retain) NSLayoutYAxisAnchor *topAnchor;
+@property(readonly, retain) NSLayoutYAxisAnchor *bottomAnchor;
+@property(readonly, retain) NSLayoutDimension *widthAnchor;
+@property(readonly, retain) NSLayoutDimension *heightAnchor;
+@property(readonly, retain) NSLayoutXAxisAnchor *centerXAnchor;
+@property(readonly, retain) NSLayoutYAxisAnchor *centerYAnchor;
 @end

@@ -44,6 +44,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSView.h>
 #import <AppKit/NSWindow-Private.h>
 #import <AppKit/NSWindow.h>
+#import <AppKit/NSViewController.h>
+#import "OSXERAppKitAPI.h"
 #import <AppKit/NSWindowAnimationContext.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <CoreGraphics/CGWindow.h>
@@ -213,6 +215,17 @@ NSInteger NSBitsPerPixelFromDepth(NSWindowDepth depth) {
 @synthesize preventsApplicationTerminationWhenModal = _preventsApplicationTerminationWhenModal;
 @synthesize identifier = _identifier;
 @synthesize accessibilityElement = _isAccessible;
+// OSXER APPKIT (accessibility): inherited typed category accessors supply these properties.
+@dynamic accessibilityLabel, accessibilityIdentifier, accessibilityHelp, accessibilityTitle, accessibilityRole;
+@dynamic accessibilitySubrole, accessibilityRoleDescription, accessibilityValueDescription, accessibilityPlaceholderValue, accessibilityFilename;
+@dynamic accessibilityDocument, accessibilityURL, accessibilitySelectedText, accessibilityValue, accessibilityMinValue;
+@dynamic accessibilityMaxValue, accessibilityParent, accessibilityWindow, accessibilityTopLevelUIElement, accessibilityTitleUIElement;
+@dynamic accessibilityLinkedUIElements, accessibilityChildren, accessibilitySelectedChildren, accessibilityVisibleChildren, accessibilityContents;
+@dynamic accessibilitySelectedRows, accessibilitySelectedColumns, accessibilityRows, accessibilityColumns, accessibilityVisibleRows;
+@dynamic accessibilityVisibleColumns, accessibilityTabs, accessibilitySelectedCells, accessibilityVisibleCells, accessibilityEnabled;
+@dynamic accessibilityFocused, accessibilitySelected, accessibilityExpanded, accessibilityEdited, accessibilityRequired;
+@dynamic accessibilityProtectedContent, accessibilityIndex, accessibilityNumberOfCharacters, accessibilityInsertionPointLineNumber, accessibilityFrame;
+@dynamic accessibilityActivationPoint, accessibilitySelectedTextRange, accessibilityVisibleCharacterRange;
 
 static BOOL _allowsAutomaticWindowTabbing;
 
@@ -1019,8 +1032,9 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (void) setContentMinSize: (NSSize) value {
+    // OSXER APPKIT (window sizing): translate content limits to decorated frame limits.
     _contentMinSize = value;
-    NSUnimplementedMethod();
+    [self setMinSize:[[self class] frameRectForContentRect:NSMakeRect(0,0,value.width,value.height) styleMask:[self styleMask]].size];
 }
 
 - (void) setContentMaxSize: (NSSize) value {
@@ -1035,13 +1049,12 @@ static BOOL _allowsAutomaticWindowTabbing;
     //   NSUnimplementedMethod();
 }
 
-- (void) setMovable: (BOOL) movable {
-    NSUnimplementedMethod();
-}
+// OSXER APPKIT (window properties): movement policy is stored; backend enforcement remains partial.
+- (void) setMovable: (BOOL) movable { objc_setAssociatedObject(self, @selector(isMovable), @(movable), OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
 
 - (void) setBackingType: (NSBackingStoreType) value {
+    // OSXER APPKIT (window backing): preserve requested policy; renderer stays buffered.
     _backingType = value;
-    NSUnimplementedMethod();
 }
 
 - (void) setDynamicDepthLimit: (BOOL) value {
@@ -1534,10 +1547,7 @@ static BOOL _allowsAutomaticWindowTabbing;
     return [_platformWindow isMiniaturized];
 }
 
-- (BOOL) isMovable {
-    NSUnimplementedMethod();
-    return NO;
-}
+- (BOOL) isMovable { NSNumber *value = objc_getAssociatedObject(self, _cmd); return value ? [value boolValue] : YES; }
 
 - (BOOL) inLiveResize {
     return _isInLiveResize;
@@ -3687,4 +3697,29 @@ static BOOL _allowsAutomaticWindowTabbing;
     return _platformWindow;
 }
 
+@end
+
+// OSXER APPKIT (backing geometry): use the screen scale through the public API.
+@implementation NSWindow (OSXERBackingAPI)
+- (CGFloat)backingScaleFactor { CGFloat scale = [[self screen] backingScaleFactor]; return scale > 0 ? scale : 1; }
+- (NSRect)convertRectToBacking:(NSRect)rect {
+    CGFloat scale = [self backingScaleFactor];
+    return NSMakeRect(rect.origin.x * scale, rect.origin.y * scale, rect.size.width * scale, rect.size.height * scale);
+}
+- (NSRect)convertRectFromBacking:(NSRect)rect {
+    CGFloat scale = [self backingScaleFactor];
+    return NSMakeRect(rect.origin.x / scale, rect.origin.y / scale, rect.size.width / scale, rect.size.height / scale);
+}
+- (NSRect)backingAlignedRect:(NSRect)rect options:(NSAlignmentOptions)options {
+    return [self convertRectFromBacking:NSIntegralRectWithOptions([self convertRectToBacking:rect], options)];
+}
+@end
+
+// OSXER APPKIT (content controller): the window owns the controller and displays its view.
+@implementation NSWindow (OSXERContentController)
+- (NSViewController *)contentViewController { return objc_getAssociatedObject(self, _cmd); }
+- (void)setContentViewController:(NSViewController *)controller {
+    objc_setAssociatedObject(self, @selector(contentViewController), controller, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [self setContentView:[controller view]];
+}
 @end

@@ -155,3 +155,11 @@ APPKIT_EXPORT const NSNotificationName NSControlTextDidEndEditingNotification;
                       errorDescription: (NSString *) error;
 - (BOOL) control: (NSControl *) control isValidObject: (id) obj;
 @end
+
+// OSXER APPKIT (API additions): public declarations.
+
+@interface NSControl (OSXERAPIAdditions)
+@property(getter=ignoresMultiClick) BOOL ignoresMultiClick;
+@property NSControlSize controlSize;
+@property(getter=isHighlighted) BOOL highlighted;
+@end

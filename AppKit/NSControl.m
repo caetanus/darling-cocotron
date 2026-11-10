@@ -748,3 +748,14 @@ static NSMutableDictionary *cellClassDictionary = nil;
     return [[self cell] sendActionOn: mask];
 }
 @end
+
+// OSXER APPKIT (API additions): stored visual state is partial where rendering needs support.
+#import "OSXERAppKitAPI.h"
+
+@implementation NSControl (OSXERAPIAdditions)
+OSXER_API_SCALAR(BOOL, ignoresMultiClick, setIgnoresMultiClick, NO)
+- (NSControlSize)controlSize { return [[self cell] controlSize]; }
+- (void)setControlSize:(NSControlSize)value { [[self cell] setControlSize:value]; [self invalidateIntrinsicContentSize]; [self setNeedsDisplay:YES]; }
+- (BOOL)isHighlighted { return [[self cell] isHighlighted]; }
+- (void)setHighlighted:(BOOL)value { [[self cell] setHighlighted:value]; [self setNeedsDisplay:YES]; }
+@end

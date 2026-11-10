@@ -41,6 +41,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSWindow.h>
 #import <Foundation/NSKeyedArchiver.h>
 
+// OSXER APPKIT (alternate attributed title): preserve attributes and copy ownership.
+#import <objc/runtime.h>
 @implementation NSButtonCell
 
 // Margin between an image and the Button interior borders
@@ -554,6 +556,7 @@ static const CGFloat kImageMargin = 2.;
 }
 
 - (NSAttributedString *) attributedAlternateTitle {
+    id value = objc_getAssociatedObject(self, _cmd); if (value) return value;
     NSMutableDictionary *attributes = [NSMutableDictionary dictionary];
     NSMutableParagraphStyle *paraStyle =
             [[[NSParagraphStyle defaultParagraphStyle] mutableCopy]
@@ -668,6 +671,7 @@ static const CGFloat kImageMargin = 2.;
 }
 
 - (void) setAlternateTitle: (NSString *) title {
+    objc_setAssociatedObject(self, @selector(attributedAlternateTitle), nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
     title = [title copy];
     [_alternateTitle release];
     _alternateTitle = title;
@@ -686,7 +690,8 @@ static const CGFloat kImageMargin = 2.;
 }
 
 - (void) setAttributedAlternateTitle: (NSAttributedString *) title {
-    NSUnimplementedMethod();
+    [self setAlternateTitle:[title string]];
+    objc_setAssociatedObject(self, @selector(attributedAlternateTitle), title, OBJC_ASSOCIATION_COPY_NONATOMIC);
 }
 
 - (void) setHighlightsBy: (int) type {

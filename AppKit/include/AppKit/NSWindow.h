@@ -700,3 +700,17 @@ typedef NS_ENUM(NSInteger, NSTitlebarSeparatorStyle) {
 APPKIT_EXPORT const NSNotificationName NSWindowWillAnimateNotification;
 APPKIT_EXPORT const NSNotificationName NSWindowAnimatingNotification;
 APPKIT_EXPORT const NSNotificationName NSWindowDidAnimateNotification;
+
+// OSXER APPKIT (backing geometry)
+@interface NSWindow (OSXERBackingAPI)
+@property(readonly) CGFloat backingScaleFactor;
+- (NSRect)convertRectToBacking:(NSRect)rect;
+- (NSRect)convertRectFromBacking:(NSRect)rect;
+- (NSRect)backingAlignedRect:(NSRect)rect options:(NSAlignmentOptions)options;
+@end
+
+// OSXER APPKIT (content controller)
+@class NSViewController;
+@interface NSWindow (OSXERContentController)
+@property(retain) NSViewController *contentViewController;
+@end

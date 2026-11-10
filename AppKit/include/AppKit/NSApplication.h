@@ -94,10 +94,7 @@ typedef enum {
     NSPrintingFailure,
 } NSApplicationPrintReply;
 
-typedef NS_ENUM(NSInteger, NSUserInterfaceLayoutDirection) {
-    NSUserInterfaceLayoutDirectionLeftToRight = 0,
-    NSUserInterfaceLayoutDirectionRightToLeft = 1,
-};
+#import <AppKit/NSUserInterfaceLayout.h>
 
 typedef NS_OPTIONS(NSUInteger, NSApplicationPresentationOptions) {
     NSApplicationPresentationDefault = 0,

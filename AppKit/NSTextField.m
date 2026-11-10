@@ -536,3 +536,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 @end
+
+// OSXER APPKIT (API additions): stored visual state is partial where rendering needs support.
+#import "OSXERAppKitAPI.h"
+#import <AppKit/NSTextFieldCell.h>
+@implementation NSTextField (OSXERAPIAdditions)
+OSXER_API_SCALAR(BOOL, allowsEditingTextAttributes, setAllowsEditingTextAttributes, NO)
+OSXER_API_SCALAR(BOOL, importsGraphics, setImportsGraphics, NO)
+OSXER_API_SCALAR(BOOL, allowsDefaultTighteningForTruncation, setAllowsDefaultTighteningForTruncation, NO)
+OSXER_API_SCALAR(BOOL, isAutomaticTextCompletionEnabled, setAutomaticTextCompletionEnabled, NO)
+- (NSTextFieldBezelStyle)bezelStyle { return [[self cell] bezelStyle]; }
+- (void)setBezelStyle:(NSTextFieldBezelStyle)value { [[self cell] setBezelStyle:value]; [self setNeedsDisplay:YES]; }
++ (instancetype)textFieldWithString:(NSString *)string {
+    NSTextField *field = [[[self alloc] initWithFrame:NSZeroRect] autorelease]; [field setStringValue:string]; [field sizeToFit]; return field;
+}
++ (instancetype)wrappingLabelWithString:(NSString *)string {
+    NSTextField *field = [self labelWithString:string]; [[field cell] setWraps:YES]; [[field cell] setUsesSingleLineMode:NO]; [field setMaximumNumberOfLines:0]; return field;
+}
++ (instancetype)labelWithAttributedString:(NSAttributedString *)string {
+    NSTextField *field = [self labelWithString:[string string]]; [field setAttributedStringValue:string]; [field sizeToFit]; return field;
+}
+@end

@@ -30,3 +30,11 @@
 @property(assign) IBOutlet NSImageView *imageView;
 @property(retain) id objectValue;
 @end
+
+// OSXER APPKIT (API additions): public declarations.
+#import <AppKit/NSTableView.h>
+@interface NSTableCellView (OSXERAPIAdditions)
+@property(getter=backgroundStyle) NSBackgroundStyle backgroundStyle;
+@property(getter=rowSizeStyle) NSTableViewRowSizeStyle rowSizeStyle;
+
+@end

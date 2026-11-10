@@ -270,3 +270,12 @@ static NSOpenPanel *_newPanel = nil;
 }
 
 @end
+
+// OSXER APPKIT (API additions): stored visual state is partial where rendering needs support.
+#import "../OSXERAppKitAPI.h"
+
+@implementation NSOpenPanel (OSXERAPIAdditions)
+OSXER_API_SCALAR(BOOL, canDownloadUbiquitousContents, setCanDownloadUbiquitousContents, YES)
+OSXER_API_SCALAR(BOOL, canResolveUbiquitousConflicts, setCanResolveUbiquitousConflicts, YES)
+
+@end

@@ -52,3 +52,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (BOOL) acceptsFirstMouse: (NSEvent *) event;
 
 @end
+
+// OSXER APPKIT (API additions): public declarations.
+#import <AppKit/NSSliderCell.h>
+@interface NSSlider (OSXERAPIAdditions)
+@property(retain) NSColor * trackFillColor;
+@property NSSliderType sliderType;
++ (instancetype)sliderWithValue:(double)value minValue:(double)min maxValue:(double)max target:(id)target action:(SEL)action;
++ (instancetype)sliderWithTarget:(id)target action:(SEL)action;
+@end

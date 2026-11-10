@@ -27,6 +27,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSTableCornerView.h>
 #import <Foundation/NSKeyedArchiver.h>
 #import "OSXERTableDebug.h"
+#import "OSXERAppKitAPI.h"
+#import <AppKit/NSTableRowView.h>
 
 NSString *const NSTableViewSelectionIsChangingNotification =
         @"NSTableViewSelectionIsChangingNotification";
@@ -65,6 +67,13 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
 static CGFloat OSXERNibColumnExtent(NSTableColumn *column, NSSize spacing) {
     return [column isHidden] ? 0 : [column width] + spacing.width;
 }
+// OSXER APPKIT (row lifecycle): internal typed declarations used by the table core.
+@interface NSTableRowView (OSXERTableOwner)
+- (void)_osxerSetTable:(NSTableView *)table row:(NSInteger)row;
+@end
+@interface NSTableView (OSXERRowLifecycle)
+- (void)_osxerRemoveRowView:(NSInteger)row;
+@end
 @implementation NSTableView
 
 - (id) _replacementKeyPathForBinding: (id) binding {
@@ -126,6 +135,12 @@ static CGFloat OSXERNibColumnExtent(NSTableColumn *column, NSSize spacing) {
     [coder encodeInt: _gridStyleMask forKey: @"NSGridStyleMask"];
     [coder encodeInteger: _localDraggingMask forKey: @"OSXERLocalDraggingMask"];
     [coder encodeInteger: _externalDraggingMask forKey: @"OSXERExternalDraggingMask"];
+    // OSXER APPKIT (table API coding): round-trip our stored options using our own key.
+    NSMutableDictionary *options = [NSMutableDictionary dictionary];
+    for (NSString *key in @[@"floatsGroupRows", @"rowSizeStyle", @"draggingDestinationFeedbackStyle", @"columnAutoresizingStyle", @"verticalMotionCanBeginDrag", @"allowsTypeSelect", @"usesStaticContents", @"autosaveName", @"autosaveTableColumns"]) {
+        id value = [self valueForKey:key]; if (value) [options setObject:value forKey:key];
+    }
+    [coder encodeObject:options forKey:@"OSXERTableAPIProperties"];
 }
 
 - initWithCoder: (NSCoder *) coder {
@@ -200,6 +215,11 @@ static CGFloat OSXERNibColumnExtent(NSTableColumn *column, NSSize spacing) {
                     format: @"-[%@ %s] is not implemented for coder %@",
                             [self class], sel_getName(_cmd), coder];
     }
+    // OSXER APPKIT (table API coding): only restore the known property set.
+    NSDictionary *options = [coder decodeObjectForKey:@"OSXERTableAPIProperties"];
+    if ([options isKindOfClass:[NSDictionary class]])
+        for (NSString *key in @[@"floatsGroupRows", @"rowSizeStyle", @"draggingDestinationFeedbackStyle", @"columnAutoresizingStyle", @"verticalMotionCanBeginDrag", @"allowsTypeSelect", @"usesStaticContents", @"autosaveName", @"autosaveTableColumns"])
+            if ([options objectForKey:key]) [self setValue:[options objectForKey:key] forKey:key];
     return self;
 }
 
@@ -263,6 +283,8 @@ static CGFloat OSXERNibColumnExtent(NSTableColumn *column, NSSize spacing) {
     [_osxerRegisteredNibs release]; [_osxerPrototypeNibs release];
     [_osxerPrototypeExternalObjects release]; [_osxerPrototypeSelfIdentifiers release];
     [_osxerCellViews release]; [_osxerReuse release];
+    for (NSTableRowView *view in [_osxerRowViews allValues]) [view _osxerSetTable:nil row:-1];
+    [_osxerRowViews release]; [_osxerHiddenRows release]; [_osxerAutosaveName release];
     NSZoneFree(NULL, _rowHeights);
     [_headerView release];
     [_cornerView release];
@@ -319,10 +341,8 @@ static CGFloat OSXERNibColumnExtent(NSTableColumn *column, NSSize spacing) {
     return _gridColor;
 }
 
-- (NSString *) autosaveName {
-    NSUnimplementedMethod();
-    return nil;
-}
+// OSXER APPKIT (table autosave): state only; persistence is not implemented yet.
+- (NSString *) autosaveName { return _osxerAutosaveName; }
 
 // deprecated in OS X >= 10.3
 // use gridStyleMask instead
@@ -358,10 +378,7 @@ static CGFloat OSXERNibColumnExtent(NSTableColumn *column, NSSize spacing) {
     return _allowsColumnSelection;
 }
 
-- (BOOL) autosaveTableColumns {
-    NSUnimplementedMethod();
-    return NO;
-}
+- (BOOL) autosaveTableColumns { return _osxerAutosaveColumns; }
 
 // row background and grid attributes for OS X >= 10.3
 - (BOOL) usesAlternatingRowBackgroundColors {
@@ -436,10 +453,16 @@ static CGFloat OSXERNibColumnExtent(NSTableColumn *column, NSSize spacing) {
 }
 
 static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
+    if ([self->_osxerHiddenRows containsIndex:index]) return 0;
     if (index < self->_rowHeightsCount)
         return self->_rowHeights[index];
 
     return self->_standardRowHeight;
+}
+
+// OSXER APPKIT (hidden rows): spacing disappears with the hidden row.
+static CGFloat OSXERTableRowPitch(NSTableView *self, NSInteger index) {
+    return [self->_osxerHiddenRows containsIndex:index] ? 0 : rowHeightAtIndex(self, index) + self->_intercellSpacing.height;
 }
 
 - (NSRect) rectOfRow: (NSInteger) row {
@@ -453,13 +476,13 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     rect.origin.x = 0.;
     rect.origin.y = 0.;
     for (i = 0; i < row; i++)
-        rect.origin.y += rowHeightAtIndex(self, i) + _intercellSpacing.height;
+        rect.origin.y += OSXERTableRowPitch(self, i);
 
     rect.size.width = 0.;
     count = [_tableColumns count];
     for (i = 0; i < count; i++)
         rect.size.width += OSXERNibColumnExtent([_tableColumns objectAtIndex: i], _intercellSpacing);
-    rect.size.height = rowHeightAtIndex(self, row) + _intercellSpacing.height;
+    rect.size.height = OSXERTableRowPitch(self, row);
 
     return rect;
 }
@@ -485,7 +508,7 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     rect.size.height = 0.;
     for (i = 0; i < numberOfRows; i++)
         rect.size.height +=
-                rowHeightAtIndex(self, i) + _intercellSpacing.height;
+                OSXERTableRowPitch(self, i);
     rect.size.height =
             MAX(rect.size.height, [[self superview] bounds].size.height);
 
@@ -499,11 +522,11 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     CGFloat height = 0.;
 
     for (i = 0; i < numberOfRows; i++) {
-        if (height + rowHeightAtIndex(self, i) + _intercellSpacing.height >
+        if (height + OSXERTableRowPitch(self, i) >
             rect.origin.y)
             break;
         else
-            height += rowHeightAtIndex(self, i) + _intercellSpacing.height;
+            height += OSXERTableRowPitch(self, i);
     }
     if (i < numberOfRows) {
         range.location = i;
@@ -512,7 +535,7 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
             if (height > rect.origin.y + rect.size.height)
                 break;
             else
-                height += rowHeightAtIndex(self, i) + _intercellSpacing.height;
+                height += OSXERTableRowPitch(self, i);
         }
         if (i < numberOfRows)
             range.length = i - range.location + 1;
@@ -575,10 +598,10 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
 
     frame.origin.y = 0.;
     for (i = 0; i < row; i++)
-        frame.origin.y += rowHeightAtIndex(self, i) + _intercellSpacing.height;
+        frame.origin.y += OSXERTableRowPitch(self, i);
 
     frame.size.width = OSXERNibColumnExtent([_tableColumns objectAtIndex: column], _intercellSpacing);
-    frame.size.height = rowHeightAtIndex(self, row) + _intercellSpacing.height;
+    frame.size.height = OSXERTableRowPitch(self, row);
 
     return frame;
 }
@@ -687,7 +710,7 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
 }
 
 - (void) setAutosaveName: (NSString *) name {
-    NSUnimplementedMethod();
+    name = [name copy]; [_osxerAutosaveName release]; _osxerAutosaveName = name;
 }
 
 // deprecated in OS X >= 10.3
@@ -724,9 +747,7 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     _allowsColumnSelection = flag;
 }
 
-- (void) setAutosaveTableColumns: (BOOL) flag {
-    NSUnimplementedMethod();
-}
+- (void) setAutosaveTableColumns: (BOOL) flag { _osxerAutosaveColumns = flag; }
 
 // row background and grid attributes for OS X >= 10.3
 - (void) setUsesAlternatingRowBackgroundColors: (BOOL) flag {
@@ -761,8 +782,16 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     [_headerView setNeedsDisplay: YES];
 }
 
+// OSXER APPKIT (column management): retain column identity and notify observers.
 - (void) moveColumn: (NSInteger) columnIndex toColumn: (NSInteger) newIndex {
-    NSUnimplementedMethod();
+    if (columnIndex < 0 || newIndex < 0 || columnIndex >= [_tableColumns count] || newIndex >= [_tableColumns count])
+        [NSException raise:NSRangeException format:@"Invalid table column move"];
+    if (columnIndex == newIndex) return;
+    id column = [[_tableColumns objectAtIndex:columnIndex] retain];
+    [_tableColumns removeObjectAtIndex:columnIndex]; [_tableColumns insertObject:column atIndex:newIndex]; [column release];
+    [self reloadData];
+    [[NSNotificationCenter defaultCenter] postNotificationName:NSTableViewColumnDidMoveNotification object:self
+        userInfo:@{@"NSOldColumn": @(columnIndex), @"NSNewColumn": @(newIndex)}];
 }
 
 - (NSInteger) editedRow {
@@ -930,7 +959,7 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     [_selectedRowIndexes release];
     _selectedRowIndexes = value;
 
-    if ([_selectedRowIndexes count] == 0 && !_allowsEmptySelection) {
+    if ([_selectedRowIndexes count] == 0 && !_allowsEmptySelection && [self numberOfRows] > 0) {
         [_selectedRowIndexes release];
         _selectedRowIndexes = [[NSIndexSet alloc] initWithIndex: 0];
     }
@@ -942,6 +971,7 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
         [_headerView setNeedsDisplay: YES];
     }
 
+    for (NSNumber *key in _osxerRowViews) [[_osxerRowViews objectForKey:key] setSelected:[_selectedRowIndexes containsIndex:[key unsignedIntegerValue]]];
     [self noteSelectionDidChange];
 }
 
@@ -1176,6 +1206,9 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
 
     _rowHeights = realloc(_rowHeights, sizeof(CGFloat) * numberOfRows);
 
+    // OSXER APPKIT (row geometry): initialize newly allocated cache slots.
+    for (NSInteger i = _rowHeightsCount; i < numberOfRows; ++i) _rowHeights[i] = _standardRowHeight;
+    _rowHeightsCount = numberOfRows;
     row = [indexSet firstIndex];
     if (_delegate != nil && [_delegate respondsToSelector: @selector
                                        (tableView:heightOfRow:)] == YES) {
@@ -1269,7 +1302,7 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     if (!identifier) [NSException raise:NSInvalidArgumentException format:@"Missing view identifier"];
     NSMutableArray *pool = [_osxerReuse objectForKey:identifier];
     NSView *view = [[[pool lastObject] retain] autorelease];
-    if (view) { [pool removeLastObject]; return view; }
+    if (view) { [pool removeLastObject]; [view prepareForReuse]; return view; }
     NSNib *nib = [_osxerRegisteredNibs objectForKey:identifier];
     BOOL prototype = nib == nil;
     if (!nib) nib = [_osxerPrototypeNibs objectForKey:identifier];
@@ -1311,7 +1344,7 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
 }
 - (NSView *)viewAtColumn:(NSInteger)column row:(NSInteger)row makeIfNecessary:(BOOL)make {
     if (row < 0 || row >= [self numberOfRows] || column < 0 || column >= [_tableColumns count]) return nil;
-    if ([[_tableColumns objectAtIndex:column] isHidden]) return nil; // OSXER NIB (column visibility)
+    if ([_osxerHiddenRows containsIndex:row] || [[_tableColumns objectAtIndex:column] isHidden]) return nil; // OSXER NIB (column visibility)
     NSArray *key = @[@(row), @(column)];
     id view = [_osxerCellViews objectForKey:key];
     if (view) return view == [NSNull null] ? nil : view;
@@ -1337,6 +1370,8 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     return view;
 }
 - (NSInteger)rowForView:(NSView *)view {
+    for (NSNumber *row in _osxerRowViews)
+        if ([view isDescendantOf:[_osxerRowViews objectForKey:row]]) return [row integerValue];
     for (NSArray *key in _osxerCellViews) {
         id cell = [_osxerCellViews objectForKey:key];
         if (cell != [NSNull null] && [view isDescendantOf:cell]) return [[key objectAtIndex:0] integerValue];
@@ -1359,9 +1394,15 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
         for (NSArray *key in [_osxerCellViews allKeys]) {
             NSInteger row = [[key objectAtIndex:0] integerValue], col = [[key objectAtIndex:1] integerValue];
             if (!NSLocationInRange(row, rows) || !NSLocationInRange(col, columns) || row >= [self numberOfRows] ||
-                col < 0 || col >= [_tableColumns count] || [[_tableColumns objectAtIndex:col] isHidden])
+                col < 0 || col >= [_tableColumns count] || [_osxerHiddenRows containsIndex:row] || [[_tableColumns objectAtIndex:col] isHidden])
                 [self _osxerRecycleCellAtKey:key];
         }
+        // OSXER APPKIT (row lifecycle): rows share the visible lifetime of cells.
+        for (NSNumber *key in [_osxerRowViews allKeys])
+            if (!NSLocationInRange([key unsignedIntegerValue], rows) || [_osxerHiddenRows containsIndex:[key unsignedIntegerValue]])
+                [self _osxerRemoveRowView:[key integerValue]];
+        for (NSUInteger row = rows.location; row < NSMaxRange(rows) && row < [self numberOfRows]; ++row)
+            if (![_osxerHiddenRows containsIndex:row]) [[self rowViewAtRow:row makeIfNecessary:YES] setFrame:[self rectOfRow:row]];
         for (NSUInteger row = rows.location; row < NSMaxRange(rows) && row < [self numberOfRows]; ++row)
             for (NSUInteger col = columns.location; col < NSMaxRange(columns) && col < [_tableColumns count]; ++col)
                 [[self viewAtColumn:col row:row makeIfNecessary:YES] setFrame:[self frameOfCellAtColumn:col row:row]];
@@ -1381,6 +1422,8 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
 }
 
 - (void) reloadData {
+    // OSXER APPKIT (row lifecycle): invalidated rows issue removal callbacks.
+    for (NSNumber *row in [_osxerRowViews allKeys]) [self _osxerRemoveRowView:[row integerValue]];
     // OSXER APPKIT (view tables): invalidation makes old views available for reuse.
     for (NSArray *key in [_osxerCellViews allKeys]) [self _osxerRecycleCellAtKey:key];
     [self noteNumberOfRowsChanged];
@@ -2252,8 +2295,10 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
 }
 
 - (unsigned) _validateDraggedRow: (id<NSDraggingInfo>) info {
-    BOOL result;
+    // OSXER APPKIT (drop targets): allow the validator to retarget the operation.
+    NSDragOperation result = NSDragOperationNone;
     NSInteger proposedRow = [self _getDraggedRow: info];
+    _draggingRow = proposedRow; _osxerDropOperation = NSTableViewDropAbove;
 
     if ([_dataSource
                 respondsToSelector: @selector
@@ -2261,10 +2306,8 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
         if ((result = [_dataSource tableView: self
                                 validateDrop: info
                                  proposedRow: proposedRow
-                       proposedDropOperation: NSTableViewDropAbove]))
-            _draggingRow = proposedRow;
-        else
-            _draggingRow = -1;
+                       proposedDropOperation: NSTableViewDropAbove])) { }
+        else _draggingRow = -1;
     }
 
     [self display];
@@ -2295,17 +2338,13 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     [self display];
 }
 
-- (BOOL) prepareForDragOperation: (id<NSDraggingInfo>) sender {
-    _draggingRow = -1;
-    [self display];
-    return YES;
-}
+- (BOOL) prepareForDragOperation: (id<NSDraggingInfo>) sender { return _draggingRow >= 0; }
 
 - (BOOL) performDragOperation: (id<NSDraggingInfo>) sender {
     return [_dataSource tableView: self
                        acceptDrop: sender
-                              row: [self _getDraggedRow: sender]
-                    dropOperation: NSTableViewDropAbove];
+                              row: _draggingRow
+                    dropOperation: _osxerDropOperation];
 }
 
 - (NSString *) description {
@@ -2380,4 +2419,146 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
 
 @implementation NSTableView (Bindings)
 
+@end
+
+// OSXER APPKIT (row management): preserve indexes and view identity, apply animations immediately.
+@implementation NSTableView (OSXERTableAPI)
+OSXER_API_SCALAR(BOOL, floatsGroupRows, setFloatsGroupRows, YES)
+OSXER_API_SCALAR(BOOL, verticalMotionCanBeginDrag, setVerticalMotionCanBeginDrag, YES)
+OSXER_API_SCALAR(BOOL, allowsTypeSelect, setAllowsTypeSelect, YES)
+OSXER_API_SCALAR(BOOL, usesStaticContents, setUsesStaticContents, NO)
+OSXER_API_SCALAR(NSTableViewRowSizeStyle, rowSizeStyle, setRowSizeStyle, NSTableViewRowSizeStyleDefault)
+OSXER_API_SCALAR(NSTableViewDraggingDestinationFeedbackStyle, draggingDestinationFeedbackStyle, setDraggingDestinationFeedbackStyle, NSTableViewDraggingDestinationFeedbackStyleRegular)
+OSXER_API_SCALAR(NSTableViewColumnAutoresizingStyle, columnAutoresizingStyle, setColumnAutoresizingStyle, NSTableViewLastColumnOnlyAutoresizingStyle)
+- (NSTableViewRowSizeStyle)effectiveRowSizeStyle {
+    return [self rowSizeStyle] == NSTableViewRowSizeStyleDefault ? NSTableViewRowSizeStyleMedium : [self rowSizeStyle];
+}
+- (NSIndexSet *)hiddenRowIndexes { return _osxerHiddenRows ? [[_osxerHiddenRows copy] autorelease] : [NSIndexSet indexSet]; }
+- (void)_osxerRemoveRowView:(NSInteger)row {
+    NSTableRowView *view = [[[_osxerRowViews objectForKey:@(row)] retain] autorelease];
+    if (!view) return;
+    [_osxerRowViews removeObjectForKey:@(row)];
+    [view removeFromSuperview];
+    [view _osxerSetTable:nil row:-1];
+    if ([_delegate respondsToSelector:@selector(tableView:didRemoveRowView:forRow:)])
+        [_delegate tableView:self didRemoveRowView:view forRow:row];
+}
+- (NSTableRowView *)rowViewAtRow:(NSInteger)row makeIfNecessary:(BOOL)make {
+    if (row < 0 || row >= [self numberOfRows]) [NSException raise:NSRangeException format:@"Invalid table row"];
+    NSTableRowView *view = [_osxerRowViews objectForKey:@(row)];
+    if (view && !NSIntersectsRect([self rectOfRow:row], [self visibleRect])) {
+        [self _osxerRemoveRowView:row]; view = nil;
+    }
+    if (view || !make) return view;
+    if ([_delegate respondsToSelector:@selector(tableView:rowViewForRow:)]) view = [_delegate tableView:self rowViewForRow:row];
+    if (!view) {
+        view = [[[NSTableRowView alloc] initWithFrame:[self rectOfRow:row]] autorelease];
+        NSArray *colors = [NSColor controlAlternatingRowBackgroundColors];
+        [view setBackgroundColor:[self usesAlternatingRowBackgroundColors] && [colors count] ?
+            [colors objectAtIndex:row % [colors count]] : [self backgroundColor]];
+    }
+    [view setFrame:[self rectOfRow:row]];
+    [view setSelected:[self isRowSelected:row]];
+    [view setSelectionHighlightStyle:[self selectionHighlightStyle]];
+    [view _osxerSetTable:self row:row];
+    if (NSIntersectsRect([view frame], [self visibleRect])) {
+        if (!_osxerRowViews) _osxerRowViews = [NSMutableDictionary new];
+        [_osxerRowViews setObject:view forKey:@(row)];
+        [self addSubview:view positioned:NSWindowBelow relativeTo:nil];
+        if ([_delegate respondsToSelector:@selector(tableView:didAddRowView:forRow:)])
+            [_delegate tableView:self didAddRowView:view forRow:row];
+    }
+    return view;
+}
+- (void)enumerateAvailableRowViewsUsingBlock:(void (^)(NSTableRowView *, NSInteger))block {
+    if (!block) return;
+    NSDictionary *snapshot = [[_osxerRowViews copy] autorelease];
+    for (NSNumber *row in snapshot) block([snapshot objectForKey:row], [row integerValue]);
+}
+- (void)_osxerValidateRowIndexes:(NSIndexSet *)indexes count:(NSInteger)count {
+    if (!indexes || ([indexes count] && [indexes lastIndex] >= count))
+        [NSException raise:NSRangeException format:@"Invalid table row indexes"];
+}
+- (void)_osxerRemapRows:(NSInteger (^)(NSInteger))map {
+    NSMutableIndexSet *selection = [NSMutableIndexSet indexSet], *hidden = [NSMutableIndexSet indexSet];
+    for (NSUInteger i = [_selectedRowIndexes firstIndex]; i != NSNotFound; i = [_selectedRowIndexes indexGreaterThanIndex:i]) {
+        NSInteger next = map(i); if (next >= 0) [selection addIndex:next];
+    }
+    for (NSUInteger i = [_osxerHiddenRows firstIndex]; _osxerHiddenRows && i != NSNotFound; i = [_osxerHiddenRows indexGreaterThanIndex:i]) {
+        NSInteger next = map(i); if (next >= 0) [hidden addIndex:next];
+    }
+    NSMutableDictionary *cells = [NSMutableDictionary dictionary], *rows = [NSMutableDictionary dictionary];
+    for (NSArray *key in [_osxerCellViews allKeys]) {
+        NSInteger next = map([[key objectAtIndex:0] integerValue]);
+        if (next < 0) [self _osxerRecycleCellAtKey:key];
+        else [cells setObject:[_osxerCellViews objectForKey:key] forKey:@[@(next), [key objectAtIndex:1]]];
+    }
+    for (NSNumber *key in [_osxerRowViews allKeys]) {
+        NSInteger next = map([key integerValue]);
+        if (next < 0) [self _osxerRemoveRowView:[key integerValue]];
+        else {
+            NSTableRowView *view = [_osxerRowViews objectForKey:key];
+            [view _osxerSetTable:self row:next]; [rows setObject:view forKey:@(next)];
+        }
+    }
+    [_osxerCellViews release]; _osxerCellViews = [cells mutableCopy];
+    [_osxerRowViews release]; _osxerRowViews = [rows mutableCopy];
+    [_osxerHiddenRows release]; _osxerHiddenRows = [hidden mutableCopy];
+    [self _setSelectedRowIndexes:selection];
+    [self noteNumberOfRowsChanged];
+    for (NSNumber *key in [_osxerRowViews allKeys]) {
+        NSTableRowView *view = [_osxerRowViews objectForKey:key];
+        [view setFrame:[self rectOfRow:[key integerValue]]];
+        [view setSelected:[self isRowSelected:[key integerValue]]];
+    }
+    if (!_osxerUpdateDepth) [self _osxerTileCellViews];
+    [self setNeedsDisplay:YES];
+}
+- (void)insertRowsAtIndexes:(NSIndexSet *)indexes withAnimation:(NSTableViewAnimationOptions)animation {
+    [self _osxerValidateRowIndexes:indexes count:[self numberOfRows] + [indexes count]];
+    [self _osxerRemapRows:^NSInteger(NSInteger row) {
+        for (NSUInteger i = [indexes firstIndex]; i != NSNotFound; i = [indexes indexGreaterThanIndex:i])
+            if (i <= row) ++row;
+        return row;
+    }];
+}
+- (void)removeRowsAtIndexes:(NSIndexSet *)indexes withAnimation:(NSTableViewAnimationOptions)animation {
+    [self _osxerValidateRowIndexes:indexes count:[self numberOfRows]];
+    [self _osxerRemapRows:^NSInteger(NSInteger row) {
+        if ([indexes containsIndex:row]) return -1;
+        return row - [indexes countOfIndexesInRange:NSMakeRange(0, row)];
+    }];
+}
+- (void)moveRowAtIndex:(NSInteger)from toIndex:(NSInteger)to {
+    if (from < 0 || to < 0 || from >= [self numberOfRows] || to >= [self numberOfRows])
+        [NSException raise:NSRangeException format:@"Invalid table row move"];
+    [self _osxerRemapRows:^NSInteger(NSInteger row) {
+        if (row == from) return to;
+        if (from < to && row > from && row <= to) return row - 1;
+        if (from > to && row >= to && row < from) return row + 1;
+        return row;
+    }];
+}
+- (void)hideRowsAtIndexes:(NSIndexSet *)indexes withAnimation:(NSTableViewAnimationOptions)animation {
+    [self _osxerValidateRowIndexes:indexes count:[self numberOfRows]];
+    if (!_osxerHiddenRows) _osxerHiddenRows = [NSMutableIndexSet new];
+    [_osxerHiddenRows addIndexes:indexes];
+    for (NSUInteger i = [indexes firstIndex]; i != NSNotFound; i = [indexes indexGreaterThanIndex:i]) [self _osxerRemoveRowView:i];
+    [self tile];
+}
+- (void)unhideRowsAtIndexes:(NSIndexSet *)indexes withAnimation:(NSTableViewAnimationOptions)animation {
+    [self _osxerValidateRowIndexes:indexes count:[self numberOfRows]];
+    [_osxerHiddenRows removeIndexes:indexes]; [self tile];
+}
+- (void)setDropRow:(NSInteger)row dropOperation:(NSTableViewDropOperation)operation {
+    if (row < -1 || row > [self numberOfRows] || (operation != NSTableViewDropAbove && operation != NSTableViewDropOn))
+        [NSException raise:NSInvalidArgumentException format:@"Invalid table drop target"];
+    _draggingRow = row; _osxerDropOperation = operation; [self setNeedsDisplay:YES];
+}
+- (void)selectColumnIndexes:(NSIndexSet *)indexes byExtendingSelection:(BOOL)extend {
+    if ([indexes count] && [indexes lastIndex] >= [_tableColumns count]) [NSException raise:NSRangeException format:@"Invalid column selection"];
+    if (!extend) [_selectedColumns removeAllObjects];
+    for (NSUInteger i = [indexes firstIndex]; i != NSNotFound; i = [indexes indexGreaterThanIndex:i])
+        [self selectColumn:i byExtendingSelection:YES];
+}
 @end

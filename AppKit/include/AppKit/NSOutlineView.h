@@ -57,6 +57,10 @@ APPKIT_EXPORT NSString *const NSOutlineViewDisclosureButtonKey;
     BOOL _autoresizesOutlineColumn;
     BOOL _autosaveExpandedItems;
     CGFloat _editingCellPadding;
+    // OSXER APPKIT (outline API): retains data source items by default on 10.13+.
+    BOOL _osxerStrongItems;
+    id _osxerDropItem;
+    NSInteger _osxerDropChildIndex;
 }
 
 - (NSTableColumn *) outlineTableColumn;
@@ -148,4 +152,13 @@ APPKIT_EXPORT NSString *const NSOutlineViewDisclosureButtonKey;
             widthOfCell: cell
          forTableColumn: (NSTableColumn *) tableColumn
                  byItem: item;
+@end
+
+// OSXER APPKIT (outline API): model mutations apply immediately, without animation.
+@interface NSOutlineView (OSXEROutlineAPI)
+@property BOOL stronglyReferencesItems;
+- (NSInteger)childIndexForItem:(id)item;
+- (void)insertItemsAtIndexes:(NSIndexSet *)indexes inParent:(id)parent withAnimation:(NSTableViewAnimationOptions)animation;
+- (void)removeItemsAtIndexes:(NSIndexSet *)indexes inParent:(id)parent withAnimation:(NSTableViewAnimationOptions)animation;
+- (void)moveItemAtIndex:(NSInteger)from inParent:(id)oldParent toIndex:(NSInteger)to inParent:(id)newParent;
 @end

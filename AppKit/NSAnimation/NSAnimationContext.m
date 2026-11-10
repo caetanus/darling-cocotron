@@ -40,10 +40,11 @@ static NSMutableArray *OSXERAnimationStack(void) {
 @synthesize allowsImplicitAnimation = _allowsImplicitAnimation;
 @synthesize completionHandler = _completionHandler;
 - (id)init { if ((self = [super init])) _duration = 0.25; return self; }
-- (void)dealloc { [_completionHandler release]; [super dealloc]; }
+- (void)dealloc { [_timingFunction release]; [_completionHandler release]; [super dealloc]; }
 - (id)copyWithZone:(NSZone *)zone {
     NSAnimationContext *copy = [[[self class] allocWithZone:zone] init];
     copy->_duration = _duration;
+    copy->_timingFunction = [_timingFunction retain];
     copy->_allowsImplicitAnimation = _allowsImplicitAnimation;
     copy->_completionHandler = [_completionHandler copy];
     return copy;
@@ -80,4 +81,10 @@ static NSMutableArray *OSXERAnimationStack(void) {
 + (void)runAnimationGroup:(void (^)(NSAnimationContext *))changes {
     [self runAnimationGroup:changes completionHandler:nil];
 }
+@end
+
+// OSXER APPKIT (animation timing): inherited by nested groups through copyWithZone:.
+@implementation NSAnimationContext (OSXERTiming)
+- (CAMediaTimingFunction *)timingFunction { return _timingFunction; }
+- (void)setTimingFunction:(CAMediaTimingFunction *)value { [value retain]; [_timingFunction release]; _timingFunction = value; }
 @end

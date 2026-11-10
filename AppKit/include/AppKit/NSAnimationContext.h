@@ -22,6 +22,8 @@
 
 // OSXER APPKIT (animation groups): immediate changes with nestable thread state.
 @interface NSAnimationContext : NSObject <NSCopying> {
+    // OSXER APPKIT (animation timing): retained/copyable group metadata, no interpolation.
+    id _timingFunction;
     NSTimeInterval _duration;
     BOOL _allowsImplicitAnimation;
     void (^_completionHandler)(void);
@@ -40,4 +42,9 @@
 @property(copy) void (^completionHandler)(void);
 + (void)runAnimationGroup:(void (^)(NSAnimationContext *))changes completionHandler:(void (^)(void))completion;
 + (void)runAnimationGroup:(void (^)(NSAnimationContext *))changes;
+@end
+// OSXER APPKIT (animation timing)
+@class CAMediaTimingFunction;
+@interface NSAnimationContext (OSXERTiming)
+@property(retain) CAMediaTimingFunction *timingFunction;
 @end

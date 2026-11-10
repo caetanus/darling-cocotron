@@ -42,3 +42,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) setImageScaling: (NSImageScaling) scaling;
 
 @end
+
+// OSXER APPKIT (API additions): public declarations.
+
+@interface NSImageView (OSXERAPIAdditions)
+@property(retain) NSColor * contentTintColor;
+
+@end

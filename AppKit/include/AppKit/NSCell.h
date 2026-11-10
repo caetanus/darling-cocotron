@@ -313,3 +313,10 @@ void NSDrawThreePartImage(NSRect frame, NSImage *startCap, NSImage *centerFill,
                           NSImage *endCap, BOOL vertical,
                           NSCompositingOperation operation, CGFloat alpha,
                           BOOL flipped);
+
+// OSXER APPKIT (API additions): public declarations.
+
+@interface NSCell (OSXERAPIAdditions)
+@property(getter=controlTint) NSControlTint controlTint;
+
+@end

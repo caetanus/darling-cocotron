@@ -275,3 +275,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 @end
+
+// OSXER APPKIT (API additions): stored visual state is partial where rendering needs support.
+#import "OSXERAppKitAPI.h"
+
+@implementation NSTableColumn (OSXERAPIAdditions)
+- (NSString *)title { return [[self headerCell] stringValue]; }
+- (void)setTitle:(NSString *)title { [[self headerCell] setStringValue:title]; [[[self tableView] headerView] setNeedsDisplay:YES]; }
+- (void)sizeToFit { [self setWidth:MAX([self minWidth], MIN([self maxWidth], [[self headerCell] cellSize].width))]; }
+@end
