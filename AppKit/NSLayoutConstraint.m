@@ -81,8 +81,27 @@ const CGFloat NSViewNoIntrinsicMetric = -1;
 - (void)removeConstraints:(NSArray *)constraints {
     for (NSLayoutConstraint *constraint in [[constraints copy] autorelease]) [self removeConstraint:constraint];
 }
+// OSXER APPKIT (fitting geometry): no constraint solver; subclasses can supply
+// intrinsic metrics, and plain containers derive extents from their subviews.
+- (NSSize)intrinsicContentSize { return NSMakeSize(NSViewNoIntrinsicMetric, NSViewNoIntrinsicMetric); }
+- (NSSize)fittingSize {
+    NSSize intrinsic = [self intrinsicContentSize];
+    NSSize size = [self frame].size;
+    if ([[self subviews] count]) {
+        size = NSZeroSize;
+        for (NSView *view in [self subviews]) {
+            if ([view isHidden]) continue;
+            NSRect frame = [view frame];
+            size.width = MAX(size.width, NSMaxX(frame)); size.height = MAX(size.height, NSMaxY(frame));
+        }
+    }
+    if (intrinsic.width >= 0) size.width = intrinsic.width;
+    if (intrinsic.height >= 0) size.height = intrinsic.height;
+    return size;
+}
+- (void)invalidateIntrinsicContentSize { [[self superview] setNeedsLayout:YES]; }
 - (BOOL)needsLayout { return _osxerNeedsLayout; }
-- (void)setNeedsLayout:(BOOL)flag { _osxerNeedsLayout = flag; }
+- (void)setNeedsLayout:(BOOL)flag { _osxerNeedsLayout = flag; if (flag) [self setNeedsDisplay:YES]; }
 - (void)layout { _osxerNeedsLayout = NO; }
 - (void)layoutSubtreeIfNeeded {
     if ([self needsLayout]) [self layout];

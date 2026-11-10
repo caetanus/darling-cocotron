@@ -171,6 +171,8 @@ typedef struct __VFlags {
         vFlags |= _isHidden ? 0x80000000 : 0;
         // TODO: there are almost certainly more vFlags
 
+        // OSXER APPKIT (view identifiers): preserve reusable view identifiers.
+        [coder encodeObject:_identifier forKey:@"NSUserInterfaceItemIdentifier"];
         [coder encodeInt: vFlags forKey: @"NSvFlags"];
         [coder encodeRect: _frame forKey: @"NSFrame"];
         [coder encodeRect: _bounds forKey: @"NSBounds"];
@@ -210,6 +212,8 @@ typedef struct __VFlags {
 
     if ([coder allowsKeyedCoding]) {
         NSKeyedUnarchiver *keyed = (NSKeyedUnarchiver *) coder;
+        // OSXER APPKIT (view identifiers)
+        _identifier = [[coder decodeObjectForKey:@"NSUserInterfaceItemIdentifier"] copy];
         unsigned vFlags = [keyed decodeIntForKey: @"NSvFlags"];
 
         _frame = NSZeroRect;
@@ -805,6 +809,8 @@ static inline void buildTransformsIfNeeded(NSView *self) {
         }
 
         [[self superview] setNeedsDisplay: YES];
+        // OSXER APPKIT (stack visibility): hidden arranged views leave the layout.
+        [[self superview] setNeedsLayout:YES];
 
         if (_isHidden)
             [self viewDidHide];
@@ -2406,6 +2412,8 @@ static NSView *viewBeingPrinted = nil;
 }
 
 - (void) _displayIfNeededWithoutViewWillDraw {
+    // OSXER APPKIT (layout lifecycle): resolve dirty frame layouts before drawing.
+    [self layoutSubtreeIfNeeded];
     if ([self needsDisplay]) {
         [self displayRect: unionOfInvalidRects(self)];
         clearNeedsDisplay(self);
@@ -2485,6 +2493,8 @@ static NSView *viewBeingPrinted = nil;
 }
 
 - (void) displayRectIgnoringOpacity: (NSRect) rect {
+    // OSXER APPKIT (layout lifecycle): explicit display also resolves layouts.
+    [self layoutSubtreeIfNeeded];
     NSRect visibleRect = [self visibleRect];
 
     rect = NSIntersectionRect(rect, visibleRect);
@@ -2932,8 +2942,7 @@ static NSView *viewBeingPrinted = nil;
 }
 
 - animator {
-    NSUnimplementedMethod();
-    // should return animating proxy. returning self does not animate.
+    // OSXER APPKIT (animator): immediate application, without interpolation.
     return self;
 }
 

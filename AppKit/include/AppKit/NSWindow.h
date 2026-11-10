@@ -184,6 +184,10 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification;
     NSMutableArray *_trackingAreas;
 
     NSSheetContext *_sheetContext;
+    // OSXER APPKIT (sheet queue): the parent owns pending sheets and handlers.
+    NSMutableArray *_osxerSheetQueue;
+    NSWindow *_osxerSheetParent;
+    BOOL _osxerCompletingSheet;
 
     NSSize _resizeInfo;
 
@@ -427,6 +431,13 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification;
 - (NSButton *) standardWindowButton: (NSWindowButton) value;
 - (NSButtonCell *) defaultButtonCell;
 - (NSWindow *) attachedSheet;
+// OSXER APPKIT (sheet completion)
+- (void)beginSheet:(NSWindow *)sheet completionHandler:(void (^)(NSInteger returnCode))handler;
+- (void)endSheet:(NSWindow *)sheet;
+- (void)endSheet:(NSWindow *)sheet returnCode:(NSInteger)returnCode;
+- (NSWindow *)sheetParent;
+- (NSArray *)sheets;
+- (id)animator;
 
 - (id) windowController;
 - (NSArray *) drawers;

@@ -22,8 +22,9 @@
 #import <AppKit/NSRaise.h>
 
 // OSXER APPKIT (animation groups): no interpolation engine; the brief permits
-// synchronous changes and completion. Nesting is independent on each thread.
+// synchronous changes. Nesting is independent on each thread.
 #import <Foundation/Foundation.h>
+#import <dispatch/dispatch.h>
 
 static NSMutableArray *OSXERAnimationStack(void) {
     NSMutableDictionary *thread = [[NSThread currentThread] threadDictionary];
@@ -59,7 +60,12 @@ static NSMutableArray *OSXERAnimationStack(void) {
     if ([stack count] <= 1) [NSException raise:NSInternalInconsistencyException format:@"No animation group to end"];
     NSAnimationContext *context = [[stack lastObject] retain];
     [stack removeLastObject];
-    @try { if (context->_completionHandler) context->_completionHandler(); }
+    // OSXER APPKIT (animation completion): dispatch copies the block and keeps
+    // its captures alive until the main queue runs, including worker callers.
+    @try {
+        if (context->_completionHandler) dispatch_async(dispatch_get_main_queue(), context->_completionHandler);
+        [context setCompletionHandler:nil]; // break captures of this completed context
+    }
     @finally { [context release]; }
 }
 + (NSAnimationContext *)currentContext { return [OSXERAnimationStack() lastObject]; }

@@ -75,6 +75,8 @@ typedef enum {
     NSTableViewDropAbove
 } NSTableViewDropOperation;
 
+@class NSNib;
+
 @interface NSTableView : NSControl {
     id _target;
     SEL _action;
@@ -117,7 +119,25 @@ typedef enum {
     NSInteger _draggingRow;
     // OSXER APPKIT (table dragging): local and external masks are independent.
     NSDragOperation _localDraggingMask, _externalDraggingMask;
+    // OSXER APPKIT (view tables): visible cells and reusable nib instances.
+    NSMutableDictionary *_osxerRegisteredNibs, *_osxerReuse, *_osxerCellViews;
+    NSDictionary *_osxerPrototypeNibs, *_osxerPrototypeExternalObjects;
+    NSArray *_osxerPrototypeSelfIdentifiers;
+    BOOL _osxerTilingViews;
+    NSUInteger _osxerUpdateDepth;
+
 }
+
+// OSXER APPKIT (view tables)
+- (void)registerNib:(NSNib *)nib forIdentifier:(NSUserInterfaceItemIdentifier)identifier;
+@property(readonly, copy) NSDictionary *registeredNibsByIdentifier;
+- (NSView *)makeViewWithIdentifier:(NSUserInterfaceItemIdentifier)identifier owner:(id)owner;
+- (NSView *)viewAtColumn:(NSInteger)column row:(NSInteger)row makeIfNecessary:(BOOL)make;
+- (NSInteger)rowForView:(NSView *)view;
+- (NSInteger)columnForView:(NSView *)view;
+- (void)beginUpdates;
+- (void)endUpdates;
+- (void)reloadDataForRowIndexes:(NSIndexSet *)rows columnIndexes:(NSIndexSet *)columns;
 
 // OSXER APPKIT (table dragging): default drag-source policy.
 - (void) setDraggingSourceOperationMask: (NSDragOperation) mask forLocal: (BOOL) local;
@@ -271,6 +291,10 @@ typedef enum {
 @end
 
 @protocol NSTableViewDelegate <NSObject>
+// OSXER APPKIT (view tables): the view factory is an optional delegate method.
+@optional
+- (NSView *)tableView:(NSTableView *)tableView viewForTableColumn:(NSTableColumn *)column row:(NSInteger)row;
+@required
 - (BOOL) tableView: (NSTableView *) tableView
         shouldEditTableColumn: (NSTableColumn *) tableColumn
                           row: (NSInteger) row;

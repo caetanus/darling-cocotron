@@ -368,14 +368,17 @@ static NSSavePanel *_newPanel = nil;
         return;
     }
 
-    _sheetCompletionHandler = [handler copy];
+    // OSXER APPKIT (panel sheets): NSOpenPanel inherits this path. State is
+    // cleared before the callback so the same panel may be presented again.
     _styleMaskBeforeSheet = [self styleMask];
     _runsAsSheet = YES;
-    [NSApp beginSheet: self
-            modalForWindow: window
-             modalDelegate: self
-            didEndSelector: @selector(_sheetDidEnd:returnCode:contextInfo:)
-               contextInfo: NULL];
+    @try {
+        [window beginSheet:self completionHandler:^(NSInteger code) {
+            _runsAsSheet = NO;
+            [self orderOut:nil];
+            if (handler) handler(code);
+        }];
+    } @catch (id exception) { _runsAsSheet = NO; @throw; }
 }
 
 - (void) _sheetDidEnd: (NSWindow *) sheet

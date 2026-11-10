@@ -79,7 +79,14 @@ typedef NSString *NSPasteboardReadingOptionKey;
 APPKIT_EXPORT const NSPasteboardReadingOptionKey
         NSPasteboardURLReadingContentsConformToTypesKey;
 
-@class NSPasteboard;
+// OSXER APPKIT (pasteboard objects): public reader/writer protocols.
+typedef NS_OPTIONS(NSUInteger, NSPasteboardReadingOptions) {
+    NSPasteboardReadingAsData = 0, NSPasteboardReadingAsString = 1,
+    NSPasteboardReadingAsPropertyList = 2, NSPasteboardReadingAsKeyedArchive = 4
+};
+typedef NS_OPTIONS(NSUInteger, NSPasteboardWritingOptions) { NSPasteboardWritingPromised = 1 << 9 };
+@class NSPasteboard, NSPasteboardItem;
+@protocol NSPasteboardWriting;
 
 // @interface NSObject (NSPasteboard)
 @protocol NSPasteboardTypeOwner
@@ -116,19 +123,31 @@ APPKIT_EXPORT const NSPasteboardReadingOptionKey
 - (BOOL) setData: (NSData *) data forType: (NSPasteboardType) type;
 - (BOOL) setString: (NSString *) string forType: (NSPasteboardType) type;
 - (BOOL) setPropertyList: plist forType: (NSPasteboardType) type;
+// OSXER APPKIT (pasteboard objects)
+- (BOOL)writeObjects:(NSArray<id<NSPasteboardWriting>> *)objects;
+- (BOOL)canReadObjectForClasses:(NSArray *)classes options:(NSDictionary *)options;
+- (NSArray<NSPasteboardItem *> *)pasteboardItems;
 - (BOOL) canReadItemWithDataConformingToTypes:(NSArray<NSString *> *) types;
 - (NSArray *)readObjectsForClasses:(NSArray<Class> *)classArray options:(NSDictionary<NSPasteboardReadingOptionKey, id> *) options;
 
 @end
 
 @protocol NSPasteboardReading <NSObject>
-
-// TODO
-
++ (NSArray *)readableTypesForPasteboard:(NSPasteboard *)pasteboard;
+@optional
++ (NSPasteboardReadingOptions)readingOptionsForType:(NSString *)type pasteboard:(NSPasteboard *)pasteboard;
+- (id)initWithPasteboardPropertyList:(id)propertyList ofType:(NSString *)type;
 @end
 
 @protocol NSPasteboardWriting <NSObject>
-
-// TODO
-
+- (NSArray *)writableTypesForPasteboard:(NSPasteboard *)pasteboard;
+- (id)pasteboardPropertyListForType:(NSString *)type;
+@optional
+- (NSPasteboardWritingOptions)writingOptionsForType:(NSString *)type pasteboard:(NSPasteboard *)pasteboard;
+@end
+// OSXER APPKIT (pasteboard objects): AppKit adds these roles to Foundation types.
+@interface NSString (OSXERPasteboard) <NSPasteboardWriting, NSPasteboardReading>
+@end
+@interface NSURL (OSXERPasteboard) <NSPasteboardWriting, NSPasteboardReading>
++ (NSURL *)URLFromPasteboard:(NSPasteboard *)pasteboard;
 @end

@@ -104,9 +104,11 @@
 }
 
 - (void) setPlaceholderString: (NSString *) string {
-    [self setPlaceholderAttributedString: [[[NSAttributedString alloc]
+    // OSXER APPKIT (path cell): nil clears the placeholder; -initWithString:nil crashed
+    // (nibs without a placeholder pass nil, Sloth segfaulted loading its main nib).
+    [self setPlaceholderAttributedString: string ? [[[NSAttributedString alloc]
                                                   initWithString: string]
-                                                  autorelease]];
+                                                  autorelease] : nil];
 }
 
 - (NSColor *) backgroundColor {

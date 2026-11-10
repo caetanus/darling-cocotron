@@ -18,10 +18,24 @@
 */
 
 #import <AppKit/NSTableCellView.h>
+#import <AppKit/NSTextField.h>
+#import <AppKit/NSObject+BindingSupport.h>
 
 // OSXER APPKIT (table cell outlets): the view hierarchy owns the two outlets.
 @implementation NSTableCellView
-@synthesize textField = _textField, imageView = _imageView, objectValue = _objectValue;
+@synthesize imageView = _imageView;
+// OSXER APPKIT (cell values): explicit bindings continue through normal KVO;
+// an unbound outlet displays the represented value directly.
+- (id)objectValue { return _objectValue; }
+- (void)setObjectValue:(id)value {
+    [value retain]; [_objectValue release]; _objectValue = value;
+    if (![_textField infoForBinding:@"value"]) [_textField setObjectValue:value];
+}
+- (NSTextField *)textField { return _textField; }
+- (void)setTextField:(NSTextField *)field {
+    _textField = field;
+    if (_objectValue && ![_textField infoForBinding:@"value"]) [_textField setObjectValue:_objectValue];
+}
 - (id)initWithCoder:(NSCoder *)coder {
     if ((self = [super initWithCoder:coder])) {
         _textField = [coder decodeObjectForKey:@"OSXERTextField"];

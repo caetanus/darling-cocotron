@@ -401,6 +401,13 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (void) dealloc {
+    // OSXER APPKIT (sheet queue): pending sheets must not retain a dead parent.
+    for (NSDictionary *request in _osxerSheetQueue)
+        ((NSWindow *)[request objectForKey:@"sheet"])->_osxerSheetParent = nil;
+    [_osxerSheetQueue release];
+    NSWindow *attached = [_sheetContext sheet];
+    if (attached && attached != self) attached->_osxerSheetParent = nil;
+    [_sheetContext release];
     [[NSNotificationCenter defaultCenter] removeObserver: self];
     [_childWindows release];
     [_title release];
@@ -2916,6 +2923,66 @@ static BOOL _allowsAutomaticWindowTabbing;
     return _draggedTypes;
 }
 
+// OSXER APPKIT (sheet completion): the existing context handles attachment,
+// event routing and dismissal; the modern entry point never enters a modal loop.
+- (id)animator { return self; }
+- (NSWindow *)sheetParent { return _osxerSheetParent; }
+- (NSArray *)sheets {
+    NSMutableArray *result = [NSMutableArray array];
+    if ([self attachedSheet]) [result addObject:[self attachedSheet]];
+    for (NSDictionary *request in _osxerSheetQueue) {
+        NSWindow *sheet = [request objectForKey:@"sheet"];
+        if (![result containsObject:sheet]) [result addObject:sheet];
+    }
+    return result;
+}
+- (void)_osxerPresentNextSheet {
+    if (_osxerCompletingSheet || [self attachedSheet] || ![_osxerSheetQueue count]) return;
+    NSWindow *sheet = [[_osxerSheetQueue objectAtIndex:0] objectForKey:@"sheet"];
+    NSSheetContext *context = [NSSheetContext sheetContextWithSheet:sheet modalDelegate:self
+        didEndSelector:@selector(_osxerSheetDidEnd:returnCode:contextInfo:) contextInfo:NULL frame:[sheet frame]];
+    [self _attachSheetContextOrderFrontAndAnimate:context];
+}
+- (void)beginSheet:(NSWindow *)sheet completionHandler:(void (^)(NSInteger))handler {
+    if (!sheet || sheet == self || sheet->_osxerSheetParent)
+        [NSException raise:NSInvalidArgumentException format:@"Invalid or already attached sheet"];
+    if (!_osxerSheetQueue) _osxerSheetQueue = [NSMutableArray new];
+    NSMutableDictionary *request = [NSMutableDictionary dictionaryWithObjectsAndKeys:
+        sheet, @"sheet", @([sheet styleMask]), @"style", nil];
+    if (handler) [request setObject:[[handler copy] autorelease] forKey:@"completion"];
+    sheet->_osxerSheetParent = self;
+    [_osxerSheetQueue addObject:request];
+    [self _osxerPresentNextSheet];
+}
+- (void)_osxerSheetDidEnd:(NSWindow *)sheet returnCode:(NSInteger)code contextInfo:(void *)info {
+    [[self retain] autorelease];
+    NSDictionary *request = [[[_osxerSheetQueue objectAtIndex:0] retain] autorelease];
+    [_osxerSheetQueue removeObjectAtIndex:0];
+    sheet->_osxerSheetParent = nil;
+    [sheet setStyleMask:[[request objectForKey:@"style"] unsignedIntegerValue]];
+    _osxerCompletingSheet = YES;
+    @try {
+        void (^completion)(NSInteger) = [request objectForKey:@"completion"];
+        if (completion) completion(code);
+    } @finally {
+        _osxerCompletingSheet = NO;
+        [self _osxerPresentNextSheet];
+    }
+}
+- (void)endSheet:(NSWindow *)sheet { [self endSheet:sheet returnCode:NSRunStoppedResponse]; }
+- (void)endSheet:(NSWindow *)sheet returnCode:(NSInteger)code {
+    if (!sheet) [NSException raise:NSInvalidArgumentException format:@"Missing sheet"];
+    if ([self attachedSheet] == sheet) { [NSApp endSheet:sheet returnCode:code]; return; }
+    // A queued sheet may also be withdrawn before it becomes visible.
+    for (NSDictionary *request in [[_osxerSheetQueue copy] autorelease]) {
+        if ([request objectForKey:@"sheet"] != sheet) continue;
+        [_osxerSheetQueue removeObjectIdenticalTo:request]; sheet->_osxerSheetParent = nil;
+        void (^completion)(NSInteger) = [request objectForKey:@"completion"];
+        if (completion) completion(code);
+        return;
+    }
+}
+
 - (void) _setSheetOrigin {
     NSWindow *sheet = [_sheetContext sheet];
     NSRect sheetFrame = [sheet frame];
@@ -2952,6 +3019,7 @@ static BOOL _allowsAutomaticWindowTabbing;
         (NSSheetContext *) sheetContext
 {
     NSWindow *sheet = [sheetContext sheet];
+    sheet->_osxerSheetParent = self;
 
     if ([sheet styleMask] != NSDocModalWindowMask)
         [sheet setStyleMask: NSDocModalWindowMask];
@@ -2989,6 +3057,7 @@ static BOOL _allowsAutomaticWindowTabbing;
     sheetFrame.size.height = 0;
 
     sheet->_isVisible = NO;
+    sheet->_osxerSheetParent = nil;
     [[sheet platformWindow] sheetOrderOutToFrame: sheetFrame];
     [(NSThemeFrame *) [sheet _backgroundView] setWindowBorderType: NSNoBorder];
 

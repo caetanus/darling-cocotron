@@ -1231,8 +1231,16 @@ NSApplication *NSApp = nil;
 }
 
 - (void) endSheet: (NSWindow *) sheet returnCode: (NSModalResponse) returnCode {
-    if ([[NSUserDefaults standardUserDefaults]
-                boolForKey: @"NSRunAllSheetsAsModalPanel"]) {
+    // OSXER APPKIT (sheet validation): nil must not match an empty context.
+    if (!sheet) [NSException raise:NSInvalidArgumentException format:@"Missing sheet"];
+    NSWindow *parent = [sheet sheetParent];
+    if (parent && [parent attachedSheet] != sheet) {
+        [parent endSheet:sheet returnCode:returnCode];
+        return;
+    }
+    // OSXER APPKIT (sheet completion): only a real legacy modal session uses
+    // the panel path; queued NSWindow sheets always use ordinary event routing.
+    if ([[sheet _sheetContext] modalSession]) {
         NSSheetContext *context = [sheet _sheetContext];
         NSModalSession session = [context modalSession];
         [session stopModalWithCode: NSRunStoppedResponse];
@@ -1245,24 +1253,30 @@ NSApplication *NSApp = nil;
         }
         [sheet _setSheetContext: nil];
     } else {
+        // OSXER APPKIT (sheet completion): stop at zero, even for unknown sheets.
         NSUInteger count = [_windows count];
 
-        while (--count >= 0) {
+        while (count > 0) {
+            --count;
             NSWindow *check = _windows[count];
             NSSheetContext *context = [check _sheetContext];
             IMP function;
 
             if ([context sheet] == sheet) {
+                // OSXER APPKIT (sheet callbacks): callbacks may release the parent.
+                [[check retain] autorelease];
                 [[context retain] autorelease];
 
                 [check _detachSheetContextAnimateAndOrderOut];
 
-                function = [[context modalDelegate]
-                        methodForSelector: [context didEndSelector]];
+                function = [context didEndSelector] ? [[context modalDelegate]
+                        methodForSelector: [context didEndSelector]] : NULL;
                 if (function != NULL)
                     ((void(*)(id, SEL, id, NSModalResponse, void *))function)([context modalDelegate], [context didEndSelector],
                              sheet, returnCode, [context contextInfo]);
 
+                // OSXER APPKIT (sheet queue): legacy sheets can precede modern ones.
+                [check performSelector:@selector(_osxerPresentNextSheet)];
                 return;
             }
         }

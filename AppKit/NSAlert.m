@@ -33,41 +33,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSApplication.h>
 #import <Foundation/NSDictionary.h>
 
-@interface _NSAlertCompletionHandler : NSObject {
-    void (^completionHandler)(NSModalResponse returnCode);
-}
-
-- (id) initWithBlock: (void (^)(NSModalResponse returnCode)) handler;
-
-- (void) alertDidEnd: (NSAlert *) alert
-          returnCode: (NSModalResponse) returnCode
-         contextInfo: (void *) contextInfo;
-
-@end
-
-@implementation _NSAlertCompletionHandler
-
-- (id) initWithBlock: (void (^)(NSModalResponse returnCode)) handler {
-    self = [super init];
-    completionHandler = [handler copy];
-    return self;
-}
-
-- (void) alertDidEnd: (NSAlert *) alert
-          returnCode: (NSModalResponse) returnCode
-         contextInfo: (void *) contextInfo
-{
-    completionHandler(returnCode);
-    [self release];
-}
-
-- (void) dealloc {
-    [completionHandler release];
-    [super dealloc];
-}
-
-@end
-
 @implementation NSAlert
 
 /*
@@ -587,11 +552,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                 completionHandler:
                         (void (^)(NSModalResponse returnCode)) handler
 {
-    [self beginSheetModalForWindow: sheetWindow
-                     modalDelegate: [[_NSAlertCompletionHandler alloc]
-                                            initWithBlock: handler]
-                    didEndSelector: @selector(alertDidEnd:returnCode:contextInfo:)
-                       contextInfo: 0];
+    // OSXER APPKIT (alert sheets): retain the alert through the copied block;
+    // normal button actions still end the same NSApplication sheet context.
+    [self layoutIfNeeded];
+    [_window setDefaultButtonCell:[[_buttons objectAtIndex:0] cell]];
+    [sheetWindow beginSheet:_window completionHandler:^(NSInteger code) {
+        [[self window] orderOut:nil];
+        if (handler) handler(code);
+    }];
 }
 
 - (NSModalResponse) runModal {

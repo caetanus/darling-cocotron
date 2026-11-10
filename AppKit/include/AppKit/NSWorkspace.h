@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/AppKitExport.h>
 #import <Foundation/Foundation.h>
 
-@class NSImage, NSView, NSRunningApplication, NSWorkspaceOpenConfiguration;
+@class NSImage, NSView, NSRunningApplication, NSWorkspaceOpenConfiguration, UTType;
 
 APPKIT_EXPORT NSString *const NSWorkspaceApplicationKey;
 
@@ -166,6 +166,11 @@ typedef NS_OPTIONS(NSUInteger, NSWorkspaceLaunchOptions) {
         (NSString *) bundleIdentifier;
 - (NSString *) fullPathForApplication: (NSString *) appName;
 
+// OSXER APPKIT (default applications)
+- (NSURL *)URLForApplicationToOpenContentType:(NSString *)type;
+- (NSImage *)iconForContentType:(UTType *)type;
+- (void)setDefaultApplicationAtURL:(NSURL *)url toOpenContentType:(UTType *)type completionHandler:(void (^)(NSError *))completion;
+- (void)setDefaultApplicationAtURL:(NSURL *)url toOpenURLsWithScheme:(NSString *)scheme completionHandler:(void (^)(NSError *))completion;
 // OSXER APPKIT (public compatibility)
 - (NSURL *) URLForApplicationToOpenURL: (NSURL *) url;
 @end

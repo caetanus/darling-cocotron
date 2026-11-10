@@ -19,13 +19,30 @@
 
 #import <AppKit/NSView.h>
 
-// OSXER APPKIT (stack storage): manage ordering without inventing a layout solver.
+// OSXER APPKIT (stack layout): frame layout, without an Auto Layout solver.
+typedef NS_ENUM(NSInteger, NSUserInterfaceLayoutOrientation) {
+    NSUserInterfaceLayoutOrientationHorizontal = 0, NSUserInterfaceLayoutOrientationVertical = 1
+};
+typedef NS_ENUM(NSInteger, NSStackViewDistribution) {
+    NSStackViewDistributionGravityAreas = -1, NSStackViewDistributionFill = 0,
+    NSStackViewDistributionFillEqually = 1, NSStackViewDistributionFillProportionally = 2,
+    NSStackViewDistributionEqualSpacing = 3, NSStackViewDistributionEqualCentering = 4
+};
 @interface NSStackView : NSView {
     NSMutableArray *_arrangedSubviews;
     CGFloat _spacing;
+    NSUserInterfaceLayoutOrientation _orientation;
+    NSLayoutAttribute _alignment;
+    NSStackViewDistribution _distribution;
+    NSEdgeInsets _edgeInsets;
 }
++ (instancetype)stackViewWithViews:(NSArray *)views;
 @property(readonly, copy) NSArray *arrangedSubviews;
 @property CGFloat spacing;
+@property NSUserInterfaceLayoutOrientation orientation;
+@property NSLayoutAttribute alignment;
+@property NSStackViewDistribution distribution;
+@property NSEdgeInsets edgeInsets;
 - (void)addArrangedSubview:(NSView *)view;
 - (void)insertArrangedSubview:(NSView *)view atIndex:(NSUInteger)index;
 - (void)removeArrangedSubview:(NSView *)view;

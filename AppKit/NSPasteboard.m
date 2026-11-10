@@ -20,6 +20,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSDisplay.h>
 #import <AppKit/NSPasteboard.h>
 #import <AppKit/NSRaise.h>
+#import <AppKit/NSPasteboardItem.h>
+#import <CoreServices/CoreServices.h>
+// OSXER APPKIT (pasteboard objects): portable multi-item payload transported
+// by the existing backend. The first item's standard flavors stay interoperable.
+static NSString *const OSXERPasteboardItemsType = @"org.darling-project.pasteboard-items";
 
 const NSPasteboardType NSPasteboardTypeString = @"NSStringPboardType";
 const NSPasteboardType NSPasteboardTypePDF = @"NSPDFPboardType";
@@ -186,14 +191,133 @@ const NSPasteboardReadingOptionKey
     return NO;
 }
 
-- (BOOL) canReadItemWithDataConformingToTypes:(NSArray<NSString *> *) types {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+// OSXER APPKIT (pasteboard objects): serialize completely before modifying the
+// board. Providers may supply their data now, as allowed by NSPasteboardWriting.
+- (BOOL)writeObjects:(NSArray *)objects {
+    if (![objects count]) return NO;
+    NSMutableArray *payload = [NSMutableArray array];
+    for (id object in objects) {
+        NSMutableDictionary *values = [NSMutableDictionary dictionary];
+        for (NSString *type in [object writableTypesForPasteboard:self]) {
+            id value = [object pasteboardPropertyListForType:type];
+            if (value) [values setObject:value forKey:type];
+        }
+        if (![values count]) return NO;
+        [payload addObject:values];
+    }
+    NSData *data = [NSPropertyListSerialization dataWithPropertyList:payload format:NSPropertyListBinaryFormat_v1_0 options:0 error:NULL];
+    if (!data) return NO;
+    // Appending preserves already-written items until clearContents is called.
+    NSArray *old = [[self types] containsObject:OSXERPasteboardItemsType] ? [self propertyListForType:OSXERPasteboardItemsType] : nil;
+    if ([old isKindOfClass:[NSArray class]]) {
+        [payload insertObjects:old atIndexes:[NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0,[old count])]];
+        data = [NSPropertyListSerialization dataWithPropertyList:payload format:NSPropertyListBinaryFormat_v1_0 options:0 error:NULL];
+    }
+    NSDictionary *first = [payload objectAtIndex:0];
+    NSMutableArray *types = [NSMutableArray arrayWithArray:[first allKeys]];
+    [types addObject:OSXERPasteboardItemsType];
+    [self addTypes:types owner:nil];
+    for (NSString *type in first) {
+        id value = [first objectForKey:type];
+        BOOL ok = [value isKindOfClass:[NSData class]] ? [self setData:value forType:type] :
+            [value isKindOfClass:[NSString class]] ? [self setString:value forType:type] : [self setPropertyList:value forType:type];
+        if (!ok) return NO;
+    }
+    return [self setData:data forType:OSXERPasteboardItemsType];
+}
+- (NSArray *)pasteboardItems {
+    NSData *data = [[self types] containsObject:OSXERPasteboardItemsType] ? [self dataForType:OSXERPasteboardItemsType] : nil;
+    id payload = data ? [NSPropertyListSerialization propertyListWithData:data options:NSPropertyListImmutable format:NULL error:NULL] : nil;
+    NSMutableArray *items = [NSMutableArray array];
+    if ([payload isKindOfClass:[NSArray class]]) {
+        for (id values in payload) {
+            if (![values isKindOfClass:[NSDictionary class]]) return nil;
+            NSPasteboardItem *item = [[[NSPasteboardItem alloc] init] autorelease];
+            for (id type in values) {
+                if (![type isKindOfClass:[NSString class]]) return nil;
+                id value = [values objectForKey:type];
+                if ([value isKindOfClass:[NSData class]]) [item setData:value forType:type];
+                else if ([value isKindOfClass:[NSString class]]) [item setString:value forType:type];
+                else [item setPropertyList:value forType:type];
+            }
+            [items addObject:item];
+        }
+    } else {
+        NSPasteboardItem *item = [[[NSPasteboardItem alloc] init] autorelease];
+        for (NSString *type in [self types]) {
+            if ([type isEqual:OSXERPasteboardItemsType]) continue;
+            if ([type isEqual:NSPasteboardTypeString] || [type isEqual:NSPasteboardTypeURL] || [type isEqual:NSPasteboardTypeFileURL])
+                [item setString:[self stringForType:type] forType:type];
+            else [item setData:[self dataForType:type] forType:type];
+        }
+        if ([[item types] count]) [items addObject:item];
+    }
+    return [items count] ? items : nil;
+}
+- (BOOL)canReadItemWithDataConformingToTypes:(NSArray *)types {
+    for (NSPasteboardItem *item in [self pasteboardItems]) for (NSString *available in [item types])
+        for (NSString *type in types)
+            if ([type isEqual:available] || UTTypeConformsTo((CFStringRef)available,(CFStringRef)type)) return YES;
     return NO;
 }
-
-- (nullable NSArray *)readObjectsForClasses:(NSArray<Class> *)classArray options:(nullable NSDictionary<NSPasteboardReadingOptionKey, id> *) options {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+- (NSArray *)readObjectsForClasses:(NSArray *)classes options:(NSDictionary *)options {
+    NSMutableArray *result = [NSMutableArray array];
+    for (NSPasteboardItem *item in [self pasteboardItems]) {
+        for (Class cls in classes) {
+            if (cls == [NSPasteboardItem class]) { [result addObject:item]; break; }
+            if (![cls respondsToSelector:@selector(readableTypesForPasteboard:)]) continue;
+            NSString *type = [item availableTypeFromArray:[cls readableTypesForPasteboard:self]];
+            if (!type) continue;
+            NSPasteboardReadingOptions mode = [cls respondsToSelector:@selector(readingOptionsForType:pasteboard:)] ?
+                [cls readingOptionsForType:type pasteboard:self] : NSPasteboardReadingAsData;
+            id value = mode & NSPasteboardReadingAsString ? [item stringForType:type] :
+                mode & NSPasteboardReadingAsPropertyList ? [item propertyListForType:type] : [item dataForType:type];
+            if (!value) continue;
+            // OSXER APPKIT (pasteboard reading): archive readers use initWithCoder,
+            // and need not implement the property-list initializer at all.
+            id object = mode & NSPasteboardReadingAsKeyedArchive ? [NSKeyedUnarchiver unarchiveObjectWithData:value] :
+                [[[cls alloc] initWithPasteboardPropertyList:value ofType:type] autorelease];
+            if (object && ![object isKindOfClass:cls]) continue;
+            if ([object isKindOfClass:[NSURL class]]) {
+                if ([[options objectForKey:NSPasteboardURLReadingFileURLsOnlyKey] boolValue] && ![object isFileURL]) continue;
+                NSArray *filter = [options objectForKey:NSPasteboardURLReadingContentsConformToTypesKey];
+                if (filter) {
+                    NSString *uti = [(NSString *)UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension,
+                        (CFStringRef)[[object path] pathExtension], NULL) autorelease];
+                    BOOL match = NO;
+                    for (NSString *wanted in filter) if (uti && UTTypeConformsTo((CFStringRef)uti,(CFStringRef)wanted)) match = YES;
+                    if (!match) continue;
+                }
+            }
+            if (object) { [result addObject:object]; break; }
+        }
+    }
+    return [result count] ? result : nil;
 }
+- (BOOL)canReadObjectForClasses:(NSArray *)classes options:(NSDictionary *)options {
+    return [[self readObjectsForClasses:classes options:options] count] != 0;
+}
+@end
 
+// OSXER APPKIT (pasteboard Foundation roles): these are AppKit categories, so
+// Foundation does not depend on clipboard or display facilities.
+@implementation NSString (OSXERPasteboard)
+- (NSArray *)writableTypesForPasteboard:(NSPasteboard *)pasteboard { return @[NSPasteboardTypeString]; }
+- (id)pasteboardPropertyListForType:(NSString *)type { return [type isEqual:NSPasteboardTypeString] ? self : nil; }
++ (NSArray *)readableTypesForPasteboard:(NSPasteboard *)pasteboard { return @[NSPasteboardTypeString, @"public.utf8-plain-text"]; }
++ (NSPasteboardReadingOptions)readingOptionsForType:(NSString *)type pasteboard:(NSPasteboard *)pasteboard { return NSPasteboardReadingAsString; }
+- (id)initWithPasteboardPropertyList:(id)value ofType:(NSString *)type { return [self initWithString:value]; }
+@end
+@implementation NSURL (OSXERPasteboard)
+- (NSArray *)writableTypesForPasteboard:(NSPasteboard *)pasteboard { return [self isFileURL] ? @[NSPasteboardTypeFileURL, NSPasteboardTypeURL] : @[NSPasteboardTypeURL]; }
+- (id)pasteboardPropertyListForType:(NSString *)type {
+    return [[self writableTypesForPasteboard:nil] containsObject:type] ? [self absoluteString] : nil;
+}
++ (NSArray *)readableTypesForPasteboard:(NSPasteboard *)pasteboard { return @[NSPasteboardTypeFileURL, NSPasteboardTypeURL]; }
++ (NSPasteboardReadingOptions)readingOptionsForType:(NSString *)type pasteboard:(NSPasteboard *)pasteboard { return NSPasteboardReadingAsString; }
+- (id)initWithPasteboardPropertyList:(id)value ofType:(NSString *)type { return [self initWithString:value]; }
++ (NSURL *)URLFromPasteboard:(NSPasteboard *)pasteboard {
+    NSArray *urls = [pasteboard readObjectsForClasses:@[[NSURL class]] options:nil];
+    return [urls count] ? [urls objectAtIndex:0] : nil;
+}
 @end

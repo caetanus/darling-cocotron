@@ -284,6 +284,10 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
         NSLog(@"Unable to instantiate NIBArchive: %@", [exception reason]);
         objectData = nil;
     } @finally {
+        // OSXER APPKIT (reusable nib ownership): this list is decode-time scratch.
+        // Keeping it across instantiations retains File's Owner and the last
+        // prototype hierarchy, creating a table -> nib -> owner -> table cycle.
+        [_allObjects removeAllObjects];
         [_nameTable release];
         _nameTable = nil;
     }

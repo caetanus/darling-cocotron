@@ -69,7 +69,40 @@ NSNotificationName NSWorkspaceWillUnmountNotification = @"NSWorkspaceWillUnmount
 
 // OSXER APPKIT (application lookup): LaunchServices owns the registration database.
 #import <CoreServices/CoreServices.h>
+#import <dispatch/dispatch.h>
+// OSXER APPKIT (content types): use only UTType's public identifier accessor;
+// the type registry remains in LaunchServices, not in AppKit.
+@protocol OSXERContentType
+- (NSString *)identifier;
+@end
 @implementation NSWorkspace
+
+// OSXER APPKIT (default applications): share LaunchServices' registrations.
+- (NSURL *)URLForApplicationToOpenContentType:(NSString *)type {
+    if (!type) return nil;
+    return [(NSURL *)LSCopyDefaultApplicationURLForContentType((CFStringRef)type, kLSRolesAll, NULL) autorelease];
+}
+- (NSImage *)iconForContentType:(UTType *)type {
+    NSString *identifier = [(id)type respondsToSelector:@selector(identifier)] ? [(id<OSXERContentType>)type identifier] : nil;
+    return [self iconForFileType:identifier];
+}
+- (void)setDefaultApplicationAtURL:(NSURL *)url toOpenContentType:(UTType *)type
+                completionHandler:(void (^)(NSError *))completion {
+    NSString *identifier = [(id)type respondsToSelector:@selector(identifier)] ? [(id<OSXERContentType>)type identifier] : nil;
+    NSString *bundleID = [url isFileURL] ? [[NSBundle bundleWithPath:[url path]] bundleIdentifier] : nil;
+    OSStatus status = bundleID && identifier ? LSSetDefaultRoleHandlerForContentType(
+        (CFStringRef)identifier, kLSRolesAll, (CFStringRef)bundleID) : -50;
+    NSError *error = status ? [NSError errorWithDomain:NSOSStatusErrorDomain code:status userInfo:nil] : nil;
+    if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(error); });
+}
+- (void)setDefaultApplicationAtURL:(NSURL *)url toOpenURLsWithScheme:(NSString *)scheme
+                completionHandler:(void (^)(NSError *))completion {
+    NSString *bundleID = [url isFileURL] ? [[NSBundle bundleWithPath:[url path]] bundleIdentifier] : nil;
+    OSStatus status = bundleID && [scheme length] ? LSSetDefaultHandlerForURLScheme(
+        (CFStringRef)scheme, (CFStringRef)bundleID) : -50;
+    NSError *error = status ? [NSError errorWithDomain:NSOSStatusErrorDomain code:status userInfo:nil] : nil;
+    if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(error); });
+}
 
 // OSXER APPKIT (application lookup): retain LaunchServices' error/no-handler behavior.
 - (NSURL *) URLForApplicationToOpenURL: (NSURL *) url {

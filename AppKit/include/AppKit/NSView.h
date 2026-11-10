@@ -479,6 +479,10 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
 - (void)setNeedsLayout:(BOOL)flag;
 - (void)layout;
 - (void)layoutSubtreeIfNeeded;
+// OSXER APPKIT (fitting geometry): intrinsic metrics or current frame fallback.
+- (NSSize)intrinsicContentSize;
+- (NSSize)fittingSize;
+- (void)invalidateIntrinsicContentSize;
 @end
 
 

@@ -58,6 +58,9 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
 
 @end
 
+#import <AppKit/NSNib.h>
+#import <AppKit/NSTableCellView.h>
+
 @implementation NSTableView
 
 - (id) _replacementKeyPathForBinding: (id) binding {
@@ -133,6 +136,19 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
             _localDraggingMask = [coder decodeIntegerForKey: @"OSXERLocalDraggingMask"];
         if ([coder containsValueForKey: @"OSXERExternalDraggingMask"])
             _externalDraggingMask = [coder decodeIntegerForKey: @"OSXERExternalDraggingMask"];
+        // OSXER APPKIT (table prototypes): embedded NSNibs from the table's
+        // archive. Resource keys verified against the supplied NIB fixtures.
+        _osxerPrototypeNibs = [[coder decodeObjectForKey:@"NSTableViewArchivedReusableViewsKey"] copy];
+        NSDictionary *external = [coder decodeObjectForKey:@"NSTableViewCellPrototypeNibExternalObjects"];
+        NSMutableDictionary *others = [NSMutableDictionary dictionary];
+        NSMutableArray *selfIdentifiers = [NSMutableArray array];
+        for (NSString *key in external) {
+            id value = [external objectForKey:key];
+            if (value == self) [selfIdentifiers addObject:key];
+            else [others setObject:value forKey:key];
+        }
+        _osxerPrototypeExternalObjects = [others copy];
+        _osxerPrototypeSelfIdentifiers = [selfIdentifiers copy];
         unsigned flags = [keyed decodeIntForKey: @"NSTvFlags"];
 
         _headerView = [[keyed decodeObjectForKey: @"NSHeaderView"] retain];
@@ -232,6 +248,10 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
 }
 
 - (void) dealloc {
+    // OSXER APPKIT (view tables)
+    [_osxerRegisteredNibs release]; [_osxerPrototypeNibs release];
+    [_osxerPrototypeExternalObjects release]; [_osxerPrototypeSelfIdentifiers release];
+    [_osxerCellViews release]; [_osxerReuse release];
     NSZoneFree(NULL, _rowHeights);
     [_headerView release];
     [_cornerView release];
@@ -610,6 +630,13 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
                                                             name: notes[i].name
                                                           object: self];
 
+    // OSXER APPKIT (view owners): a new delegate needs fresh nib connections.
+    if (_delegate != delegate) {
+        for (id view in [_osxerCellViews allValues])
+            if (view != [NSNull null]) [view removeFromSuperview];
+        [_osxerCellViews removeAllObjects]; [_osxerReuse removeAllObjects];
+        [self setNeedsDisplay:YES];
+    }
     _delegate = delegate;
 
     for (i = 0; notes[i].name != nil; ++i)
@@ -1232,7 +1259,137 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
         [self _setSelectedRowIndexes: selection];
 }
 
+// OSXER APPKIT (view tables): keep the delegate/binding substitution points.
+- (BOOL)_osxerUsesCellViews {
+    return [_delegate respondsToSelector:@selector(tableView:viewForTableColumn:row:)] ||
+        [_osxerPrototypeNibs count] || [_osxerRegisteredNibs count];
+}
+- (NSDictionary *)registeredNibsByIdentifier {
+    return _osxerRegisteredNibs ? [[_osxerRegisteredNibs copy] autorelease] : [NSDictionary dictionary];
+}
+- (void)registerNib:(NSNib *)nib forIdentifier:(NSUserInterfaceItemIdentifier)identifier {
+    if (!identifier) [NSException raise:NSInvalidArgumentException format:@"Missing view identifier"];
+    if (!_osxerRegisteredNibs) _osxerRegisteredNibs = [NSMutableDictionary new];
+    if (nib) [_osxerRegisteredNibs setObject:nib forKey:identifier];
+    else [_osxerRegisteredNibs removeObjectForKey:identifier];
+    [_osxerReuse removeObjectForKey:identifier];
+}
+- (NSView *)makeViewWithIdentifier:(NSUserInterfaceItemIdentifier)identifier owner:(id)owner {
+    if (!identifier) [NSException raise:NSInvalidArgumentException format:@"Missing view identifier"];
+    NSMutableArray *pool = [_osxerReuse objectForKey:identifier];
+    NSView *view = [[[pool lastObject] retain] autorelease];
+    if (view) { [pool removeLastObject]; return view; }
+    NSNib *nib = [_osxerRegisteredNibs objectForKey:identifier];
+    BOOL prototype = nib == nil;
+    if (!nib) nib = [_osxerPrototypeNibs objectForKey:identifier];
+    if (!nib) return nil;
+    NSMutableArray *objects = [NSMutableArray array];
+    NSMutableDictionary *names = [NSMutableDictionary dictionary];
+    if (prototype && [_osxerPrototypeExternalObjects isKindOfClass:[NSDictionary class]])
+        [names addEntriesFromDictionary:_osxerPrototypeExternalObjects];
+    if (prototype) for (NSString *key in _osxerPrototypeSelfIdentifiers) [names setObject:self forKey:key];
+    if (owner) [names setObject:owner forKey:NSNibOwner];
+    [names setObject:objects forKey:NSNibTopLevelObjects];
+    if (![nib instantiateNibWithExternalNameTable:names]) return nil;
+    for (id object in objects) {
+        if ([object isKindOfClass:[NSView class]] && [[object identifier] isEqual:identifier]) view = object;
+    }
+    // A registered nib can contain a single cell without a preassigned identifier.
+    if (!view) for (id object in objects) {
+        if ([object isKindOfClass:[NSView class]] && ![object identifier]) { view = object; break; }
+    }
+    [[view retain] autorelease];
+    [view setIdentifier:identifier];
+    // The legacy NSNib entry point gives the caller ownership of each root.
+    for (id object in objects) [object autorelease];
+    return view;
+}
+- (void)_osxerRecycleCellAtKey:(NSArray *)key {
+    NSView *view = [_osxerCellViews objectForKey:key];
+    if (view != (id)[NSNull null]) {
+        NSString *identifier = [view identifier];
+        if (identifier) {
+            if (!_osxerReuse) _osxerReuse = [NSMutableDictionary new];
+            NSMutableArray *pool = [_osxerReuse objectForKey:identifier];
+            if (!pool) { pool = [NSMutableArray array]; [_osxerReuse setObject:pool forKey:identifier]; }
+            [pool addObject:view];
+        }
+        [view removeFromSuperview];
+    }
+    [_osxerCellViews removeObjectForKey:key];
+}
+- (NSView *)viewAtColumn:(NSInteger)column row:(NSInteger)row makeIfNecessary:(BOOL)make {
+    if (row < 0 || row >= [self numberOfRows] || column < 0 || column >= [_tableColumns count]) return nil;
+    NSArray *key = @[@(row), @(column)];
+    id view = [_osxerCellViews objectForKey:key];
+    if (view) return view == [NSNull null] ? nil : view;
+    if (!make || ![self _osxerUsesCellViews]) return nil;
+    NSTableColumn *tableColumn = [_tableColumns objectAtIndex:column];
+    if ([_delegate respondsToSelector:@selector(tableView:viewForTableColumn:row:)])
+        view = [_delegate tableView:self viewForTableColumn:tableColumn row:row];
+    else view = [self makeViewWithIdentifier:[tableColumn identifier] owner:_delegate];
+    if (!_osxerCellViews) _osxerCellViews = [NSMutableDictionary new];
+    [_osxerCellViews setObject:view ?: (id)[NSNull null] forKey:key];
+    if (view) {
+        if ([view respondsToSelector:@selector(setObjectValue:)]) {
+            id binder = [self _binderForBinding:@"content"];
+            NSArray *content = [[binder destination] valueForKeyPath:[binder valueForKey:@"keyPath"]];
+            if (content && row < [content count]) [view setObjectValue:[content objectAtIndex:row]];
+            else if ([_dataSource respondsToSelector:@selector(tableView:objectValueForTableColumn:row:)] ||
+                     [tableColumn _binderForBinding:@"value"])
+                [view setObjectValue:[self dataSourceObjectValueForTableColumn:tableColumn row:row]];
+        }
+        [view setFrame:[self frameOfCellAtColumn:column row:row]];
+        [self addSubview:view];
+    }
+    return view;
+}
+- (NSInteger)rowForView:(NSView *)view {
+    for (NSArray *key in _osxerCellViews) {
+        id cell = [_osxerCellViews objectForKey:key];
+        if (cell != [NSNull null] && [view isDescendantOf:cell]) return [[key objectAtIndex:0] integerValue];
+    }
+    return -1;
+}
+- (NSInteger)columnForView:(NSView *)view {
+    for (NSArray *key in _osxerCellViews) {
+        id cell = [_osxerCellViews objectForKey:key];
+        if (cell != [NSNull null] && [view isDescendantOf:cell]) return [[key objectAtIndex:1] integerValue];
+    }
+    return -1;
+}
+- (void)_osxerTileCellViews {
+    if (_osxerTilingViews || _osxerUpdateDepth || ![self _osxerUsesCellViews]) return;
+    _osxerTilingViews = YES;
+    @try {
+        NSRect visible = [self visibleRect];
+        NSRange rows = [self rowsInRect:visible], columns = [self columnsInRect:visible];
+        for (NSArray *key in [_osxerCellViews allKeys]) {
+            NSInteger row = [[key objectAtIndex:0] integerValue], col = [[key objectAtIndex:1] integerValue];
+            if (!NSLocationInRange(row, rows) || !NSLocationInRange(col, columns) || row >= [self numberOfRows])
+                [self _osxerRecycleCellAtKey:key];
+        }
+        for (NSUInteger row = rows.location; row < NSMaxRange(rows) && row < [self numberOfRows]; ++row)
+            for (NSUInteger col = columns.location; col < NSMaxRange(columns) && col < [_tableColumns count]; ++col)
+                [[self viewAtColumn:col row:row makeIfNecessary:YES] setFrame:[self frameOfCellAtColumn:col row:row]];
+    } @finally { _osxerTilingViews = NO; }
+}
+- (void)beginUpdates { ++_osxerUpdateDepth; }
+- (void)endUpdates {
+    if (!_osxerUpdateDepth) [NSException raise:NSInternalInconsistencyException format:@"Unbalanced table updates"];
+    if (!--_osxerUpdateDepth) [self tile];
+}
+- (void)reloadDataForRowIndexes:(NSIndexSet *)rows columnIndexes:(NSIndexSet *)columns {
+    for (NSArray *key in [_osxerCellViews allKeys])
+        if ([rows containsIndex:[[key objectAtIndex:0] unsignedIntegerValue]] &&
+            [columns containsIndex:[[key objectAtIndex:1] unsignedIntegerValue]]) [self _osxerRecycleCellAtKey:key];
+    [self _osxerTileCellViews];
+    [self setNeedsDisplay:YES];
+}
+
 - (void) reloadData {
+    // OSXER APPKIT (view tables): invalidation makes old views available for reuse.
+    for (NSArray *key in [_osxerCellViews allKeys]) [self _osxerRecycleCellAtKey:key];
     [self noteNumberOfRowsChanged];
     [self setNeedsDisplay: YES];
     [_headerView setNeedsDisplay: YES];
@@ -1247,6 +1404,7 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     rect.size.width = [self frame].size.width;
     [_headerView setFrameSize: rect.size];
 
+    [self _osxerTileCellViews];
     [[self enclosingScrollView]
             setVerticalLineScroll: _standardRowHeight +
                                    _intercellSpacing.height];
@@ -1374,6 +1532,8 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
 }
 
 - (void) drawRow: (NSInteger) row clipRect: (NSRect) clipRect {
+    // OSXER APPKIT (view tables): subviews draw after the table's background.
+    if ([self _osxerUsesCellViews]) { [self _osxerTileCellViews]; return; }
     // draw only visible columns.
     NSRange visibleColumns = [self columnsInRect: clipRect];
     NSInteger drawThisColumn = visibleColumns.location;

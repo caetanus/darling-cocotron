@@ -17,13 +17,27 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#import <Foundation/NSObject.h>
+#import <AppKit/NSPasteboard.h>
 
-@interface NSPasteboardItem : NSObject
+// OSXER APPKIT (pasteboard items): values plus demand-driven data providers.
+@protocol NSPasteboardItemDataProvider;
+@interface NSPasteboardItem : NSObject <NSPasteboardWriting, NSPasteboardReading> {
+    NSMutableDictionary *_osxerData, *_osxerProviders;
+    NSMutableArray *_osxerTypes;
+    NSMutableSet *_osxerProviding;
+}
+@property(readonly, copy) NSArray *types;
+- (NSString *)availableTypeFromArray:(NSArray *)types;
+- (BOOL)setDataProvider:(id<NSPasteboardItemDataProvider>)provider forTypes:(NSArray *)types;
+- (BOOL)setData:(NSData *)data forType:(NSString *)type;
+- (BOOL)setString:(NSString *)string forType:(NSString *)type;
+- (BOOL)setPropertyList:(id)propertyList forType:(NSString *)type;
+- (NSData *)dataForType:(NSString *)type;
+- (NSString *)stringForType:(NSString *)type;
+- (id)propertyListForType:(NSString *)type;
 @end
-
 @protocol NSPasteboardItemDataProvider <NSObject>
-
-// TODO
-
+- (void)pasteboard:(NSPasteboard *)pasteboard item:(NSPasteboardItem *)item provideDataForType:(NSString *)type;
+@optional
+- (void)pasteboardFinishedWithDataProvider:(NSPasteboard *)pasteboard;
 @end
