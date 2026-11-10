@@ -18,6 +18,8 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import "NSCustomObject.h"
+// OSXER NIB (format selection)
+#import "NSNibArchiveUnarchiver.h"
 #import "NSIBObjectData.h"
 #import "NSNibHelpConnector.h"
 #import <AppKit/NSApplication.h>
@@ -60,6 +62,10 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
         [sounds release];
     }
 
+    // OSXER NIB (embedded archives): table-cell prototype nibs carry their data.
+    _flags._isKeyed = [NSNibArchiveUnarchiver isNibArchiveData: _data] ||
+            ([coder allowsKeyedCoding] && [coder decodeBoolForKey: @"NSNibFileIsKeyed"]);
+    _allObjects = [NSMutableArray new];
     return self;
 }
 
@@ -76,22 +82,26 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
         return nil;
     }
     if (isDirectory) {
-        objects = [[path stringByAppendingPathComponent: @"keyedobjects"]
-                stringByAppendingPathExtension: @"nib"];
-
-        if ([[NSFileManager defaultManager] fileExistsAtPath: objects])
-            _flags._isKeyed = TRUE;
-        else
-            objects = [[path stringByAppendingPathComponent: @"objects"]
-                    stringByAppendingPathExtension: @"nib"];
+        // OSXER NIB (directory variants): prefer the canonical member, then the
+        // highest numbered keyedobjects variant; retain legacy objects.nib.
+        NSFileManager *manager = [NSFileManager defaultManager];
+        objects = [path stringByAppendingPathComponent: @"keyedobjects.nib"];
+        if (![manager fileExistsAtPath: objects]) {
+            NSArray *members = [[manager contentsOfDirectoryAtPath: path error: NULL]
+                    sortedArrayUsingComparator: ^NSComparisonResult(id a, id b) {
+                        return [b compare: a options: NSNumericSearch];
+                    }];
+            objects = nil;
+            for (NSString *member in members) {
+                if ([member hasPrefix: @"keyedobjects-"] && [member hasSuffix: @".nib"]) {
+                    objects = [path stringByAppendingPathComponent: member];
+                    break;
+                }
+            }
+        }
+        _flags._isKeyed = objects != nil;
+        if (!objects) objects = [path stringByAppendingPathComponent: @"objects.nib"];
     } else {
-        // FIXME: Should we try to infer keyed-ness form the file itself in this
-        // case?
-        _flags._isKeyed = TRUE;
-    }
-
-    if (!objects && !isDirectory) {
-        objects = path; // assume new-style compiled xib
         _flags._isKeyed = TRUE;
     }
 
@@ -167,8 +177,13 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
 
     NIBDEBUG(@"instantiateNibWithExternalNameTable: %@", nameTable);
 
-    NSIBObjectData *objectData;
+    // OSXER NIB (failure boundary): malformed compiled resources fail once,
+    // before connections or awake callbacks run. Keyed plist behavior is retained.
+    BOOL binary = [NSNibArchiveUnarchiver isNibArchiveData: _data];
+    NSIBObjectData *objectData = nil;
+    @try {
     @autoreleasepool {
+        [_allObjects removeAllObjects];
         _nameTable = [nameTable retain];
 
         NSCoder *unarchiver;
@@ -176,10 +191,10 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
         NSMenu *menu;
         NSArray *topLevelObjects;
 
-        if (_flags._isKeyed) {
-            NSKeyedUnarchiver *keyed;
-            unarchiver = keyed = [[[NSKeyedUnarchiver alloc]
-                    initForReadingWithData: _data] autorelease];
+        if (binary || _flags._isKeyed) {
+            id keyed;
+            Class decoder = binary ? [NSNibArchiveUnarchiver class] : [NSKeyedUnarchiver class];
+            unarchiver = keyed = [[[decoder alloc] initForReadingWithData: _data] autorelease];
             [keyed setDelegate: self];
 
             /*
@@ -206,6 +221,11 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
             objectData = [unkeyed decodeObject];
         }
 
+        if (binary && ![objectData isKindOfClass: [NSIBObjectData class]]) {
+            if (unarchiver && ![(NSNibArchiveUnarchiver *)unarchiver failed])
+                NSLog(@"Unable to decode NIBArchive: missing IB.objectdata");
+            return NO;
+        }
         [objectData buildConnectionsWithNameTable: _nameTable];
         if ((menu = [objectData mainMenu]) != nil) {
             // Rename the first item to have the application name.
@@ -214,7 +234,8 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
                 NSString *appName = [[NSBundle mainBundle]
                         objectForInfoDictionaryKey: (NSString *)
                                                             kCFBundleNameKey];
-                [firstItem setTitle: appName];
+                // OSXER NIB (standalone loading): bundles may omit a display name.
+                if ([appName length]) [firstItem setTitle: appName];
             }
             [NSApp setMainMenu: menu];
         }
@@ -257,6 +278,12 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
                 makeObjectsPerformSelector: @selector(makeKeyAndOrderFront:)
                                 withObject: nil];
 
+    }
+    } @catch (NSException *exception) {
+        if (!binary) @throw;
+        NSLog(@"Unable to instantiate NIBArchive: %@", [exception reason]);
+        objectData = nil;
+    } @finally {
         [_nameTable release];
         _nameTable = nil;
     }

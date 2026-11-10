@@ -27,6 +27,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     struct O2ICNSNode *_iconNodes;
     struct O2ICNSNode *_maskNodes;
     NSMutableArray *_images;
+    NSMutableArray *_embeddedImages; // OSXER ICNS (PNG): decoded PNG payloads
     bool _parsed;
 }
 

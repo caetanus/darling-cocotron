@@ -107,6 +107,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSMovie.h>
 #import <AppKit/NSMovieView.h>
 #import <AppKit/NSMutableParagraphStyle.h>
+// OSXER NIB (public storyboard API)
+#import <AppKit/NSStoryboard.h>
 #import <AppKit/NSNib.h>
 #import <AppKit/NSNibConnector.h>
 #import <AppKit/NSNibControlConnector.h>

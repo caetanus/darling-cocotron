@@ -17,6 +17,11 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
+// OSXER NIB (main storyboard launch)
+#import "NSStoryboardPrivate.h"
+#import <AppKit/NSWindowController.h>
+#import <AppKit/NSViewController.h>
+#import <objc/runtime.h>
 #import <AppKit/NSAlert.h>
 #import <AppKit/NSAppearance.h>
 #import <AppKit/NSApplication.h>
@@ -1784,10 +1789,24 @@ int NSApplicationMain(int argc, const char *argv[]) {
 
     [class sharedApplication];
 
-    nibFile = [nibFile stringByDeletingPathExtension];
-
-    if (![NSBundle loadNibNamed: nibFile owner: NSApp])
-        NSLog(@"Unable to load main nib file %@", nibFile);
+    // OSXER NIB (main storyboard launch): retain the initial controller for
+    // the application lifetime, as for the top-level objects of a main nib.
+    NSString *storyboardName = [bundle objectForInfoDictionaryKey: @"NSMainStoryboardFile"];
+    if ([storyboardName length]) {
+        NSStoryboard *storyboard = [NSStoryboard storyboardWithName: storyboardName bundle: bundle];
+        if (storyboard) {
+            [storyboard _loadMainMenu];
+            id controller = [storyboard instantiateInitialController];
+            objc_setAssociatedObject(NSApp, @selector(instantiateInitialController), controller,
+                    OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            if ([controller isKindOfClass: [NSWindowController class]]) [controller showWindow: NSApp];
+            else if ([controller isKindOfClass: [NSViewController class]]) [controller view];
+        }
+    } else if ([nibFile length]) {
+        nibFile = [nibFile stringByDeletingPathExtension];
+        if (![NSBundle loadNibNamed: nibFile owner: NSApp])
+            NSLog(@"Unable to load main nib file %@", nibFile);
+    }
 
     [pool release];
 

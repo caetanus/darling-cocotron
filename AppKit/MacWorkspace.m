@@ -1,6 +1,9 @@
 #import "MacWorkspace.h"
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSRaise.h>
+#import <AppKit/NSColor.h>
+#import <AppKit/NSBezierPath.h>
+#import <AppKit/NSImage.h>
 #include <LaunchServices/LaunchServices.h>
 #include <dispatch/dispatch.h>
 
@@ -14,27 +17,91 @@
 
 @implementation MacWorkspace
 
+// OSXER ICONS (workspace): macOS never returns nil from these. Bundles use their own icon
+// (CFBundleIconFile); everything else gets a generic document or folder icon drawn here
+// (own artwork: the Darling root has no CoreTypes.bundle and Apple's icons are not ours).
+static NSImage *OSXERDrawnIcon(BOOL folder) {
+    NSImage *image = [[NSImage alloc] initWithSize: NSMakeSize(128, 128)];
+    [image lockFocus];
+    if (folder) {
+        NSBezierPath *tab = [NSBezierPath bezierPathWithRoundedRect: NSMakeRect(10, 84, 46, 22)
+                                                             xRadius: 6 yRadius: 6];
+        [[NSColor colorWithCalibratedRed: 0.36 green: 0.66 blue: 0.93 alpha: 1] setFill];
+        [tab fill];
+        NSBezierPath *body = [NSBezierPath bezierPathWithRoundedRect: NSMakeRect(8, 18, 112, 78)
+                                                              xRadius: 8 yRadius: 8];
+        [[NSColor colorWithCalibratedRed: 0.45 green: 0.73 blue: 0.97 alpha: 1] setFill];
+        [body fill];
+    } else {
+        NSBezierPath *page = [NSBezierPath bezierPath];
+        [page moveToPoint: NSMakePoint(26, 6)];
+        [page lineToPoint: NSMakePoint(102, 6)];
+        [page lineToPoint: NSMakePoint(102, 94)];
+        [page lineToPoint: NSMakePoint(76, 122)];
+        [page lineToPoint: NSMakePoint(26, 122)];
+        [page closePath];
+        [[NSColor whiteColor] setFill];
+        [page fill];
+        [[NSColor colorWithCalibratedWhite: 0.62 alpha: 1] setStroke];
+        [page setLineWidth: 2];
+        [page stroke];
+        NSBezierPath *fold = [NSBezierPath bezierPath];
+        [fold moveToPoint: NSMakePoint(76, 122)];
+        [fold lineToPoint: NSMakePoint(76, 94)];
+        [fold lineToPoint: NSMakePoint(102, 94)];
+        [fold closePath];
+        [[NSColor colorWithCalibratedWhite: 0.88 alpha: 1] setFill];
+        [fold fill];
+        [fold stroke];
+    }
+    [image unlockFocus];
+    return image;
+}
+
+static NSImage *OSXERGenericIcon(BOOL folder) {
+    static NSImage *document, *directory;
+    NSImage **slot = folder ? &directory : &document;
+    if (*slot == nil) *slot = OSXERDrawnIcon(folder);
+    // Callers commonly resize the result; never hand out the shared instance.
+    return [[*slot copy] autorelease];
+}
+
+static NSImage *OSXERBundleIcon(NSString *path) {
+    NSBundle *bundle = [NSBundle bundleWithPath: path];
+    NSString *name = [bundle objectForInfoDictionaryKey: @"CFBundleIconFile"];
+    if (![name isKindOfClass: [NSString class]] || [name length] == 0) return nil;
+    NSString *file = [bundle pathForResource: [name stringByDeletingPathExtension]
+                                      ofType: [[name pathExtension] length] ? [name pathExtension] : @"icns"];
+    return file ? [[[NSImage alloc] initWithContentsOfFile: file] autorelease] : nil;
+}
+
 - (NSImage *) iconForFile: (NSString *) path {
-    // TODO: call GetIconRefFromFileInfo()
-    NSUnimplementedMethod();
-    return NULL;
+    BOOL directory = NO;
+    if (![[NSFileManager defaultManager] fileExistsAtPath: path isDirectory: &directory])
+        return OSXERGenericIcon(NO);
+    if (directory) {
+        NSImage *icon = [[path pathExtension] length] ? OSXERBundleIcon(path) : nil;
+        return icon ? icon : OSXERGenericIcon(YES);
+    }
+    return [self iconForFileType: [path pathExtension]];
 }
 
 - (NSImage *) iconForFiles: (NSArray *) array {
-    NSUnimplementedMethod();
-    return NULL;
+    if ([array count] == 1) return [self iconForFile: [array objectAtIndex: 0]];
+    return OSXERGenericIcon(NO);
 }
 
 - (NSImage *) iconForFileType: (NSString *) type {
-    // TODO: call GetIconRefFromTypeInfo()
-    NSUnimplementedMethod();
-    return NULL;
+    // Accepts extensions, UTIs and the HFS 'TYPE' form alike; all map to the generic icons.
+    if ([type isEqual: (NSString *)kUTTypeFolder] || [type isEqual: (NSString *)kUTTypeDirectory] ||
+        [type isEqual: @"'fldr'"])
+        return OSXERGenericIcon(YES);
+    return OSXERGenericIcon(NO);
 }
 
 - (NSString *) localizedDescriptionForType: (NSString *) type {
-    // TODO: call UTTypeCopyDescription()
-    NSUnimplementedMethod();
-    return NULL;
+    // OSXER ICONS (workspace): the LaunchServices type registry knows the descriptions.
+    return [(NSString *)UTTypeCopyDescription((CFStringRef)type) autorelease];
 }
 
 - (BOOL) filenameExtension: (NSString *) extension

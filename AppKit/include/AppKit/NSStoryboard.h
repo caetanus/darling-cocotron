@@ -20,6 +20,17 @@
 #import <AppKit/AppKitExport.h>
 #import <Foundation/Foundation.h>
 
-@interface NSStoryboard : NSObject
+// OSXER NIB (storyboard API)
+typedef NSString *NSStoryboardName;
+typedef NSString *NSStoryboardSceneIdentifier;
 
+@interface NSStoryboard : NSObject {
+    NSString *_path;
+    NSBundle *_bundle;
+    NSDictionary *_info;
+    NSMutableSet *_loading;
+}
++ (instancetype) storyboardWithName: (NSStoryboardName) name bundle: (NSBundle *) bundle;
+- (id) instantiateInitialController;
+- (id) instantiateControllerWithIdentifier: (NSStoryboardSceneIdentifier) identifier;
 @end

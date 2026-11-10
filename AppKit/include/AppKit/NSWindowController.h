@@ -19,7 +19,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSResponder.h>
 
-@class NSWindow, NSDocument;
+@class NSWindow, NSDocument, NSStoryboard, NSViewController;
 
 @interface NSWindowController : NSResponder {
     NSWindow *_window;
@@ -31,8 +31,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     BOOL _shouldCascadeWindows;
     NSString *_windowFrameAutosaveName;
     NSArray *_topLevelObjects;
+    // OSXER NIB (storyboard window relationship)
+    NSStoryboard *_storyboard;
+    NSViewController *_contentViewController;
 }
 
+// OSXER NIB (storyboard ownership)
+- (NSStoryboard *) storyboard;
+- (NSViewController *) contentViewController;
+- (void) setContentViewController: (NSViewController *) controller;
 - initWithWindow: (NSWindow *) window;
 - initWithWindowNibName: (NSString *) nibName;
 - initWithWindowNibName: (NSString *) nibName owner: owner;

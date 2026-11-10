@@ -147,6 +147,8 @@ set(AppKit_sources
 	nib.subproj/NSNibHelpConnector.m
 	nib.subproj/NSNibControlConnector.m
 	nib.subproj/NSNibOutletConnector.m
+	# OSXER NIB (decoder)
+	nib.subproj/NSNibArchiveUnarchiver.m
 	nib.subproj/NSNib.m
 	nib.subproj/NSWindowTemplate.m
 	nib.subproj/NSMenuTemplate.m

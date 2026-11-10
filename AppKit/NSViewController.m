@@ -1,4 +1,6 @@
 #import <AppKit/NSNib.h>
+// OSXER NIB (storyboard context)
+#import "NSStoryboardPrivate.h"
 #import <AppKit/NSNibLoading.h>
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSViewController.h>
@@ -16,11 +18,25 @@
 - initWithCoder: (NSCoder *) coder {
     if ([coder allowsKeyedCoding]) {
         _nibName = [[coder decodeObjectForKey: @"NSNibName"] copy];
+        // OSXER NIB (split view state)
+        _identifier = [[coder decodeObjectForKey: @"NSStoryboardIdentifier"] copy];
+        NSDictionary *external = [coder decodeObjectForKey: @"NSExternalObjectsTableForViewLoading"];
+        NSMutableDictionary *others = [NSMutableDictionary dictionary];
+        NSMutableArray *selfIdentifiers = [NSMutableArray array];
+        for (NSString *key in external) {
+            id value = [external objectForKey: key];
+            if (value == self) [selfIdentifiers addObject: key];
+            else [others setObject: value forKey: key];
+        }
+        // The upstream-owner entry must not create a controller -> table ->
+        // controller retain cycle. Reconstitute it only during view loading.
+        _externalObjectsForViewLoading = [others copy];
+        _externalSelfIdentifiers = [selfIdentifiers copy];
         _title = [[coder decodeObjectForKey: @"NSTitle"] copy];
         NSString *bundleIdentifier =
                 [coder decodeObjectForKey: @"NSNibBundleIdentifier"];
         if (bundleIdentifier != nil)
-            _nibBundle = [NSBundle bundleWithIdentifier: bundleIdentifier];
+            _nibBundle = [[NSBundle bundleWithIdentifier: bundleIdentifier] retain];
     }
 
     return self;
@@ -28,8 +44,18 @@
 
 - (void) dealloc {
     [_identifier release];
+    // OSXER NIB (controller ownership)
+    [_nibName release]; [_nibBundle release]; [_title release];
+    [_representedObject release]; [_view release];
+    [_storyboard release]; [_externalObjectsForViewLoading release]; [_externalSelfIdentifiers release];
 
     [super dealloc];
+}
+
+// OSXER NIB (storyboard outlet)
+- (NSStoryboard *) storyboard { return _storyboard; }
+- (void) setStoryboard: (NSStoryboard *) storyboard {
+    [storyboard retain]; [_storyboard release]; _storyboard = storyboard;
 }
 
 - (NSString *) nibName {
@@ -78,6 +104,13 @@
 }
 
 - (void) loadView {
+    // OSXER NIB (split view resource): preserve subclass loadView dispatch.
+    if (_storyboard) {
+        NSMutableDictionary *external = [NSMutableDictionary dictionaryWithDictionary: _externalObjectsForViewLoading ?: @{}];
+        for (NSString *key in _externalSelfIdentifiers) [external setObject: self forKey: key];
+        [_storyboard _loadViewController: self externalObjects: external];
+        return;
+    }
     NSString *name = [self nibName];
     NSBundle *bundle = [self nibBundle];
 

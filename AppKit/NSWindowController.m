@@ -22,8 +22,36 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSNibLoading.h>
 #import <AppKit/NSWindow.h>
 #import <AppKit/NSWindowController.h>
+// OSXER NIB (storyboard window relationship)
+#import "NSStoryboardPrivate.h"
+#import <AppKit/NSViewController.h>
 
 @implementation NSWindowController
+
+// OSXER NIB (window controller decoding): the compiled window relationship is
+// encoded directly, with its content controller pointing at a separate view nib.
+- (id) initWithCoder: (NSCoder *) coder {
+    if (!(self = [self initWithWindow: nil])) return nil;
+    if ([coder allowsKeyedCoding]) {
+        [self setWindow: [coder decodeObjectForKey: @"IBWindowTemplate"]];
+        _contentViewController = [[coder decodeObjectForKey: @"IBWindowTemplateContentViewController"] retain];
+    }
+    return self;
+}
+- (NSStoryboard *) storyboard { return _storyboard; }
+- (void) setStoryboard: (NSStoryboard *) storyboard {
+    [storyboard retain]; [_storyboard release]; _storyboard = storyboard;
+    [_contentViewController setStoryboard: storyboard];
+    if (_window && _contentViewController)
+        [_window setContentView: [_contentViewController view]];
+}
+- (NSViewController *) contentViewController { return _contentViewController; }
+- (void) setContentViewController: (NSViewController *) controller {
+    [controller retain]; [_contentViewController release]; _contentViewController = controller;
+    if (_storyboard) [controller setStoryboard: _storyboard];
+    if (_window && controller) [_window setContentView: [controller view]];
+}
+
 
 - initWithWindow: (NSWindow *) window {
     _window = [window retain];
@@ -82,6 +110,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [_windowFrameAutosaveName release];
     [_topLevelObjects makeObjectsPerformSelector: @selector(release)];
     [_topLevelObjects release];
+    // OSXER NIB (storyboard ownership)
+    [_storyboard release]; [_contentViewController release];
     [super dealloc];
 }
 

@@ -21,6 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Onyx2D/O2DataProvider.h>
 #import <Onyx2D/O2Image.h>
 #import <Onyx2D/O2ImageSource_ICNS.h>
+#include <string.h>
 
 typedef struct O2ICNSNode {
     struct O2ICNSNode *next;
@@ -161,12 +162,14 @@ static uint8_t eightBitCLUT[256][3] = {
     _length = [_data length];
     _position = 0;
     _images = [NSMutableArray new];
+    _embeddedImages = [NSMutableArray new];
     return self;
 }
 
 - (void) dealloc {
     [_data release];
     [_images release];
+    [_embeddedImages release];
     [super dealloc];
 }
 
@@ -242,6 +245,25 @@ static uint32_t nextUnsigned32(O2ImageSource_ICNS *self) {
     bool maskFollows = FALSE;
 
     // NSLog(@" .icns icon type=%c %c %c %c",type>>24,type>>16,type>>8,type);
+
+    // OSXER ICNS (PNG): since 10.7 the large sizes (ic07-ic14, icp4-icp6, ic04/ic05 in newer
+    // files) usually hold a whole PNG, and modern app icons contain nothing else. Decode those
+    // with the PNG image source; JPEG 2000 and ARGB payloads are still skipped.
+    static const unsigned char png[8] = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'};
+    if (length >= sizeof(png) && length <= _length - _position &&
+        memcmp(_bytes + _position, png, sizeof(png)) == 0) {
+        NSData *payload = [_data subdataWithRange: NSMakeRange(_position, length)];
+        O2ImageSourceRef source = [O2ImageSource newImageSourceWithData: (CFDataRef) payload
+                                                                options: nil];
+        O2Image *image = [source count] ? [source createImageAtIndex: 0 options: nil] : nil;
+        if (image) {
+            [_embeddedImages addObject: image];
+            O2ImageRelease(image);
+        }
+        [source release];
+        _position += length;
+        return;
+    }
 
     switch (type) {
 
@@ -658,6 +680,9 @@ static uint32_t nextUnsigned32(O2ImageSource_ICNS *self) {
         free(iconNode);
     }
     _maskNodes = NULL;
+
+    [_images addObjectsFromArray: _embeddedImages];
+    [_embeddedImages removeAllObjects];
 }
 
 - (void) parseIfNeeded {
