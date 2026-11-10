@@ -143,3 +143,7 @@ APPKIT_EXPORT void NSShowAnimationEffect(NSAnimationEffect effect,
                                          NSPoint center, NSSize size,
                                          id delegate, SEL didEndSelector,
                                          void *context);
+
+// OSXER APPS (rectangle fills)
+APPKIT_EXPORT void NSRectFillListWithColorsUsingOperation(const NSRect *rects,
+    NSColor **colors, NSInteger count, NSCompositingOperation operation);

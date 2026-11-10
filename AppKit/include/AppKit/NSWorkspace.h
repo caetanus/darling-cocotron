@@ -209,3 +209,6 @@ typedef NS_OPTIONS(NSUInteger, NSWorkspaceLaunchOptions) {
 @property cpu_type_t architecture;
 
 @end
+
+// OSXER APPS (volume notification)
+APPKIT_EXPORT NSNotificationName const NSWorkspaceDidRenameVolumeNotification;

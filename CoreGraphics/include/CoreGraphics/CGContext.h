@@ -431,3 +431,7 @@ CGContextShowGlyphsAtPositions(CGContextRef c,
                                size_t count);
 
 CF_IMPLICIT_BRIDGING_DISABLED
+
+// OSXER APPS (bounded transparency)
+COREGRAPHICS_EXPORT void CGContextBeginTransparencyLayerWithRect(CGContextRef context,
+    CGRect rect, CFDictionaryRef auxiliaryInfo);

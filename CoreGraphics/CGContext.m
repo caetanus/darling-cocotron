@@ -40,6 +40,14 @@ void CGContextBeginTransparencyLayer(CGContextRef context,
     O2ContextBeginTransparencyLayer((O2ContextRef)context, (NSDictionary *) unused);
 }
 
+// OSXER APPS (bounded transparency): begin saves the parent graphics state, so
+// clipping the new layer bounds is undone by the existing end-layer operation.
+void CGContextBeginTransparencyLayerWithRect(CGContextRef context, CGRect rect,
+                                             CFDictionaryRef auxiliaryInfo) {
+    CGContextBeginTransparencyLayer(context, auxiliaryInfo);
+    CGContextClipToRect(context, rect);
+}
+
 void CGContextEndTransparencyLayer(CGContextRef context) {
     O2ContextEndTransparencyLayer((O2ContextRef)context);
 }

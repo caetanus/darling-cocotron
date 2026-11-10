@@ -543,3 +543,15 @@ void NSShowAnimationEffect(NSAnimationEffect effect, NSPoint center,
 void NSSetFocusRingStyle(NSFocusRingPlacement placement) {
     printf("STUB: %s\n", __PRETTY_FUNCTION__);
 }
+
+// OSXER APPS (rectangle fills): preserve graphics state, applying each color in order.
+void NSRectFillListWithColorsUsingOperation(const NSRect *rects, NSColor **colors,
+                                           NSInteger count, NSCompositingOperation operation) {
+    CGContextRef context = NSCurrentGraphicsPort();
+    CGContextSaveGState(context);
+    for (NSInteger i = 0; i < count; ++i) {
+        [colors[i] setFill];
+        NSRectFillUsingOperation(rects[i], operation);
+    }
+    CGContextRestoreGState(context);
+}

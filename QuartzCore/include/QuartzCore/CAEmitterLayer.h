@@ -29,3 +29,6 @@ typedef NSString* CAEmitterLayerRenderMode NS_TYPED_ENUM;
 CA_EXPORT CAEmitterLayerEmitterShape const kCAEmitterLayerPoint;
 
 CA_EXPORT CAEmitterLayerRenderMode const kCAEmitterLayerAdditive;
+
+// OSXER APPS (emitter shape)
+CA_EXPORT CAEmitterLayerEmitterShape const kCAEmitterLayerLine;

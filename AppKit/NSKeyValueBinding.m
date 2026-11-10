@@ -74,3 +74,6 @@ NSBindingOption NSValueTransformerNameBindingOption = @"NSValueTransformerName";
 }
 
 @end
+
+// OSXER APPS (binding)
+NSBindingName NSMaxValueBinding = @"maxValue";

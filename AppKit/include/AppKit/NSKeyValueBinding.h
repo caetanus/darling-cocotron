@@ -76,3 +76,6 @@ APPKIT_EXPORT NSBindingOption NSValueTransformerNameBindingOption;
 @property(readonly, copy) NSArray<NSString *> *exposedBindings;
 
 @end
+
+// OSXER APPS (binding)
+APPKIT_EXPORT NSBindingName NSMaxValueBinding;

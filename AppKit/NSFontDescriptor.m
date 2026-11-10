@@ -198,3 +198,6 @@ const NSFontWeight NSFontWeightRegular = 0;
 }
 
 @end
+
+// OSXER APPS (font design)
+NSString *const NSFontDescriptorSystemDesignRounded = @"NSCTFontDesignRounded";

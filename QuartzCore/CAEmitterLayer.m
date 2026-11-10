@@ -38,3 +38,6 @@ CAEmitterLayerRenderMode const kCAEmitterLayerAdditive = @"additive";
 }
 
 @end
+
+// OSXER APPS (emitter shape)
+CAEmitterLayerEmitterShape const kCAEmitterLayerLine = @"line";

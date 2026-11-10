@@ -94,3 +94,6 @@ APPKIT_EXPORT const NSFontWeight NSFontWeightRegular;
 - (NSFontDescriptor *) matchingFontDescriptorWithMandatoryKeys: (NSSet *) keys;
 
 @end
+
+// OSXER APPS (font design)
+APPKIT_EXPORT NSString *const NSFontDescriptorSystemDesignRounded;

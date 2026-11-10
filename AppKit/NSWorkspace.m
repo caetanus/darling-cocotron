@@ -406,3 +406,5 @@ NSNotificationName NSWorkspaceWillUnmountNotification = @"NSWorkspaceWillUnmount
 }
 
 @end
+// OSXER APPS (volume notification): name only; no volume rename monitor.
+NSNotificationName const NSWorkspaceDidRenameVolumeNotification = @"NSWorkspaceDidRenameVolumeNotification";
