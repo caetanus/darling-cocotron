@@ -771,7 +771,8 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (NSArray *) subviews {
-    return _subviews;
+    // OSXER APPKIT (snapshots): a copy, as on macOS; callers mutate while iterating it.
+    return [[_subviews copy] autorelease];
 }
 
 - (BOOL) autoresizesSubviews {

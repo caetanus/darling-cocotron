@@ -423,7 +423,8 @@ static CGFloat OSXERNibColumnExtent(NSTableColumn *column, NSSize spacing) {
 }
 
 - (NSArray *) tableColumns {
-    return _tableColumns;
+    // OSXER APPKIT (snapshots): a copy, as on macOS; callers mutate while iterating it.
+    return [[_tableColumns copy] autorelease];
 }
 
 - (NSInteger) columnWithIdentifier: (id) identifier {

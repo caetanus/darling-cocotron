@@ -208,7 +208,8 @@ NSString *const _NSWindowsMenuName = @"Window";
 }
 
 - (NSArray *) itemArray {
-    return _itemArray;
+    // OSXER APPKIT (snapshots): a copy, as on macOS; callers mutate while iterating it.
+    return [[_itemArray copy] autorelease];
 }
 
 - (void) _setItemArray: itemArray {

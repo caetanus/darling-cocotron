@@ -214,7 +214,8 @@ NSApplication *NSApp = nil;
 }
 
 - (NSArray *) windows {
-    return _windows;
+    // OSXER APPKIT (snapshots): a copy, as on macOS; callers mutate while iterating it.
+    return [[_windows copy] autorelease];
 }
 
 - (NSWindow *) windowWithWindowNumber: (NSInteger) number {

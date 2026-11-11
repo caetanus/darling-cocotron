@@ -1662,7 +1662,8 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (NSArray *) childWindows {
-    return _childWindows;
+    // OSXER APPKIT (snapshots): a copy, as on macOS; callers mutate while iterating it.
+    return [[_childWindows copy] autorelease];
 }
 
 - (void) addChildWindow: (NSWindow *) child

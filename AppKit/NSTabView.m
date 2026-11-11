@@ -272,7 +272,8 @@ id _NSTabViewFloatingCell = nil;
 }
 
 - (NSArray *) tabViewItems {
-    return _items;
+    // OSXER APPKIT (snapshots): a copy, as on macOS; callers mutate while iterating it.
+    return [[_items copy] autorelease];
 }
 
 - (NSTabViewItem *) tabViewItemAtIndex: (NSInteger) index {

@@ -198,7 +198,8 @@ const NSNotificationName NSToolbarChangeAppearanceNotification =
 }
 
 - (NSArray *) items {
-    return _items;
+    // OSXER APPKIT (snapshots): a copy, as on macOS; callers mutate while iterating it.
+    return [[_items copy] autorelease];
 }
 
 - (NSArray *) visibleItems {
