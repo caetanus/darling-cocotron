@@ -19,6 +19,8 @@
     // Owners such as NSOpenGLContext can keep a subwindow after its NSWindow
     // has gone, and the subwindow still asks its parent for its geometry.
     _parent = [parent retain];
+    _cocoaFrame = frame;
+    [_parent osxerAddSubwindow: self];
     frame = [self convertFrame: frame];
     _drawableFrame = frame;
     _syncsToDisplay = YES;
@@ -39,6 +41,7 @@
     if (_usingParentDrawable)
         [_parent releaseLayerDrawable: self];
     XDestroyWindow(_display, _window);
+    [_parent osxerRemoveSubwindow: self];
     [_parent release];
     [super dealloc];
 }
@@ -108,11 +111,17 @@
 }
 
 - (void) setFrame: (CGRect) frame {
+    _cocoaFrame = frame;
     frame = [self convertFrame: frame];
     _drawableFrame = frame;
 
     XMoveResizeWindow(_display, _window, frame.origin.x, frame.origin.y,
                       frame.size.width, frame.size.height);
+}
+
+// OSXER X11 (subwindows): the parent's height changed; place the subwindow again.
+- (void) osxerReposition {
+    [self setFrame: _cocoaFrame];
 }
 
 @end

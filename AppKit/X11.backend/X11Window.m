@@ -802,6 +802,35 @@ static NSData *makeWindowIcon() {
     return _window;
 }
 
+// OSXER X11 (debug): OSXER_X11_DEBUG=1 logs frame and backing changes of every window.
+static BOOL OSXERX11Debug(void) {
+    static int on = -1;
+    if (on < 0) on = getenv("OSXER_X11_DEBUG") != NULL;
+    return on;
+}
+
+// OSXER X11 (subwindows): layer-backed views draw into child X windows placed in X
+// coordinates, which depend on this window's height. A view repositions its subwindow while
+// the window is being resized, before this window knows its new height, so the subwindow kept
+// the old height's position (Sloth's content drew 165 px too high, the rest of the window
+// empty). Whenever this window's size changes, its subwindows are placed again.
+- (void) osxerAddSubwindow: (id) subwindow {
+    if (!_osxerSubwindows) _osxerSubwindows = CFSetCreateMutable(NULL, 0, NULL);
+    CFSetAddValue(_osxerSubwindows, subwindow);
+}
+
+- (void) osxerRemoveSubwindow: (id) subwindow {
+    if (_osxerSubwindows) CFSetRemoveValue(_osxerSubwindows, subwindow);
+}
+
+static void OSXERRepositionSubwindow(const void *value, void *context) {
+    [(id) value osxerReposition];
+}
+
+- (void) osxerRepositionSubwindows {
+    if (_osxerSubwindows) CFSetApplyFunction(_osxerSubwindows, OSXERRepositionSubwindow, NULL);
+}
+
 - (O2Context *) createCGContextIfNeeded {
     if (_context == nil) {
         O2ColorSpaceRef colorSpace = O2ColorSpaceCreateDeviceRGB();
@@ -818,6 +847,8 @@ static NSData *makeWindowIcon() {
         _context = [[O2Context_builtin_FT alloc] initWithSurface: surface
                                                          flipped: NO];
         [surface release];
+        if (OSXERX11Debug())
+            NSLog(@"x11 %p new context %p %@", self, _context, NSStringFromSize(_frame.size));
     }
     return _context;
 }
@@ -826,9 +857,14 @@ static NSData *makeWindowIcon() {
     return [self createCGContextIfNeeded];
 }
 
+
+
 - (void) invalidateContextWithNewSize: (NSSize) size
                          forceRebuild: (BOOL) forceRebuild
 {
+    if (OSXERX11Debug())
+        NSLog(@"x11 %p invalidateContext %@ -> %@ force=%d", self, NSStringFromSize(_frame.size),
+              NSStringFromSize(size), forceRebuild);
     if (!NSEqualSizes(_frame.size, size) || forceRebuild) {
         _frame.size = size;
         if (![_context resizeWithNewSize: size]) {
@@ -864,10 +900,14 @@ static NSData *makeWindowIcon() {
     if (X11FullscreenLeaveBeforeMove(fullscreen, _fullscreenRequested, moved))
         [self requestFullscreen: NO force: NO];
     frame = transformed;
+    if (OSXERX11Debug())
+        NSLog(@"x11 %p setFrame %@ (x11 %@)", self, NSStringFromRect([self transformFrame: frame]), NSStringFromRect(frame));
     XMoveResizeWindow(_display, _window, frame.origin.x, frame.origin.y,
                       frame.size.width, frame.size.height);
     [self invalidateContextWithNewSize: frame.size];
     _frame = frame;
+    if (!NSEqualSizes(previousSize, frame.size))
+        [self osxerRepositionSubwindows];
     // A non-resizable window hints PMinSize == PMaxSize, and a window manager
     // refuses any resize that falls outside the pair, so the hints have to follow
     // the size. Only on a real change so a drag does not re-issue them per pixel.
@@ -1173,6 +1213,30 @@ BOOL X11WindowManagerIsRunning(Display *display) {
     O2Surface *surface = [_context surface];
     size_t width = O2ImageGetWidth(surface);
     size_t height = O2ImageGetHeight(surface);
+    if (OSXERX11Debug()) {
+        static int flushes;
+        if (flushes++ < 40)
+            NSLog(@"x11 %p flush context %p surface %zux%zu", self, _context, width, height);
+        // OSXER_X11_DUMP=<dir>: write each window's surface (as drawn, before GL presents it)
+        // as a PPM, overwritten on every flush: tells drawing bugs from presentation bugs.
+        const char *dir = getenv("OSXER_X11_DUMP");
+        if (dir) {
+            char path[1024];
+            snprintf(path, sizeof path, "%s/surface-%lx-%zux%zu.ppm", dir, (unsigned long) _window, width, height);
+            FILE *f = fopen(path, "wb");
+            if (f) {
+                const uint8_t *bytes = [surface pixelBytes];
+                size_t row = O2ImageGetBytesPerRow(surface);
+                fprintf(f, "P6\n%zu %zu\n255\n", width, height);
+                for (size_t y = 0; y < height; y++)
+                    for (size_t x = 0; x < width; x++) {
+                        const uint8_t *p = bytes + y * row + x * 4; // BGRA, premultiplied
+                        fputc(p[2], f); fputc(p[1], f); fputc(p[0], f);
+                    }
+                fclose(f);
+            }
+        }
+    }
 
     [_caContext prepareViewportWidth: width height: height];
     [_caContext renderSurface: surface];
@@ -1239,8 +1303,13 @@ static int ignoreBadWindow(Display *display, XErrorEvent *errorEvent) {
             window = parent;
         };
 
+        if (OSXERX11Debug())
+            NSLog(@"x11 %p frameChanged (configure) %@", self, NSStringFromRect(rect));
+        NSSize previousSize = _frame.size;
         [self invalidateContextWithNewSize: rect.size];
         _frame = rect;
+        if (!NSEqualSizes(previousSize, rect.size))
+            [self osxerRepositionSubwindows];
     } @finally {
         XSetErrorHandler(previousHandler);
     }

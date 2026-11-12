@@ -35,6 +35,7 @@
     Window _window;
     CGLContextObj _cglContext;
     CGLWindowRef _cglWindow;
+    CFMutableSetRef _osxerSubwindows; // OSXER X11 (subwindows): not retained
     CAWindowOpenGLContext *_caContext;
 
     NSWindow *_delegate;
@@ -103,6 +104,8 @@
 - (void) requestInputFocus;
 - (void) mapNotified;
 
+- (void) osxerAddSubwindow: (id) subwindow;
+- (void) osxerRemoveSubwindow: (id) subwindow;
 @end
 
 // Whether an EWMH window manager is running on the display.
