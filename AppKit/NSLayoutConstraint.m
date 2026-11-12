@@ -308,11 +308,18 @@ static NSLayoutConstraint *OSXERVFLMake(id first, NSLayoutAttribute a1, OSXERVFL
 }
 - (void)invalidateIntrinsicContentSize { [[self superview] setNeedsLayout:YES]; }
 - (BOOL)needsLayout { return _osxerNeedsLayout; }
-- (void)setNeedsLayout:(BOOL)flag { _osxerNeedsLayout = flag; if (flag) [self setNeedsDisplay:YES]; }
+// OSXER APPKIT (auto layout): asking for layout schedules the window's solver pass.
+extern void OSXERWindowSetNeedsLayoutPass(NSWindow *window);
+extern void OSXERLayoutWindowIfNeeded(NSWindow *window);
+- (void)setNeedsLayout:(BOOL)flag {
+    _osxerNeedsLayout = flag;
+    if (flag) { OSXERWindowSetNeedsLayoutPass([self window]); [self setNeedsDisplay:YES]; }
+}
 - (void)layout { _osxerNeedsLayout = NO; }
 - (void)layoutSubtreeIfNeeded {
     // OSXER APPKIT (constraint lifecycle): subclass updates precede frame layout.
     [self updateConstraintsForSubtreeIfNeeded];
+    OSXERLayoutWindowIfNeeded([self window]); // OSXER APPKIT (auto layout)
     if ([self needsLayout]) [self layout];
     for (NSView *child in [self subviews]) [child layoutSubtreeIfNeeded];
 }

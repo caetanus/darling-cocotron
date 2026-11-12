@@ -2010,11 +2010,16 @@ static BOOL _allowsAutomaticWindowTabbing;
     }
 }
 
+// OSXER APPKIT (auto layout): see OSXERLayoutEngine.mm.
+extern void OSXERLayoutWindowIfNeeded(NSWindow *window);
+extern void OSXERWindowSetNeedsLayoutPass(NSWindow *window);
+
 - (void) displayIfNeeded {
-    if (![self isVisible] || [self isMiniaturized] ||
-        ![self viewsNeedDisplay]) {
+    if (![self isVisible] || [self isMiniaturized])
         return;
-    }
+    OSXERLayoutWindowIfNeeded(self);
+    if (![self viewsNeedDisplay])
+        return;
 
     @autoreleasepool {
         if ([NSGraphicsContext quartzDebuggingIsEnabled]) {
@@ -2047,6 +2052,7 @@ static BOOL _allowsAutomaticWindowTabbing;
         [_backgroundView setNeedsDisplay: YES];
         return;
     }
+    OSXERLayoutWindowIfNeeded(self); // OSXER APPKIT (auto layout)
     @autoreleasepool {
         if ([NSGraphicsContext quartzDebuggingIsEnabled]) {
             // Show all the views getting redrawn.

@@ -414,6 +414,7 @@ set(AppKit_sources
 	NSCollectionViewFlowLayout.m
 	NSTouchBarItem.m
 	NSLayoutConstraint.m
+	OSXERLayoutEngine.mm
 	NSSpeechSynthesizer.m
 	NSCustomTouchBarItem.m
 	NSGestureRecognizer.m
@@ -567,6 +568,15 @@ add_framework(AppKit
 		fontconfig
 		jpeg png tiff
 		CoreServices
+		cxx
+)
+
+# OSXER APPKIT (auto layout): the solver (ThirdParty/kiwi) is C++.
+set_target_properties(AppKit
+	PROPERTIES
+		CXX_STANDARD 17
+		CXX_EXTENSIONS ON
+		CXX_STANDARD_REQUIRED ON
 )
 
 reexport(AppKit Foundation ${CMAKE_BINARY_DIR}/src/external/foundation/Foundation)
