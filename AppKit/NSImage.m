@@ -439,6 +439,19 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
         }
     }
 
+    // OSXER APPKIT (asset catalogs): then the bundles' compiled asset catalogs (Assets.car),
+    // where Xcode puts an app's images.
+    if (image == nil) {
+        extern NSImage *OSXERAssetCatalogImage(NSBundle *bundle, NSString *name);
+        for (NSBundle *bundle in [self _checkBundles]) {
+            image = OSXERAssetCatalogImage(bundle, name);
+            if (image) {
+                [image setName: name];
+                break;
+            }
+        }
+    }
+
     // Cocoa AppKit always returns the same shared cached image
     return image;
 }

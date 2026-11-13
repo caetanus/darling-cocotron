@@ -415,6 +415,7 @@ set(AppKit_sources
 	NSTouchBarItem.m
 	NSLayoutConstraint.m
 	OSXERLayoutEngine.mm
+	OSXERAssetCatalog.m
 	NSSpeechSynthesizer.m
 	NSCustomTouchBarItem.m
 	NSGestureRecognizer.m
@@ -569,6 +570,8 @@ add_framework(AppKit
 		jpeg png tiff
 		CoreServices
 		cxx
+		compression
+		z
 )
 
 # OSXER APPKIT (auto layout): the solver (ThirdParty/kiwi) is C++.
