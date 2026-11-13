@@ -8,8 +8,9 @@
    Model, in window coordinates (y up):
    - every view that takes part (a constraint item, or translatesAutoresizingMaskIntoConstraints
      NO) gets four variables: x, y, width, height; a layout guide stands for its owning view;
-   - views that translate their autoresizing mask (and the content view) are fixed at their
-     current frame; Cocoa's autoresizing moves them when an Auto Layout parent resizes, so the
+   - views that translate their autoresizing mask are fixed at their current frame; the
+     content view keeps its origin and prefers its size at priority 500 (macOS's
+     NSLayoutPriorityWindowSizeStayPut), so required content constraints resize the window; Cocoa's autoresizing moves them when an Auto Layout parent resizes, so the
      pass repeats (at most three times) until nothing moves;
    - Auto Layout views get width, height >= 0, their intrinsic content size as hugging and
      compression-resistance constraints (priorities 250/750 by default, as on macOS), and a
@@ -45,6 +46,7 @@ extern "C" void OSXERLayoutWindowIfNeeded(NSWindow *window);
 
 static const void *OSXERNeedsLayoutKey = &OSXERNeedsLayoutKey;
 static const void *OSXERLaidOutSizeKey = &OSXERLaidOutSizeKey;
+static const void *OSXERAskedSizeKey = &OSXERAskedSizeKey;
 static BOOL OSXERInLayoutPass = NO;
 
 void OSXERWindowSetNeedsLayoutPass(NSWindow *window) {
@@ -140,7 +142,7 @@ static BOOL LayoutOnce(NSWindow *window) {
         auto found = items.find(view);
         if (found != items.end()) return &found->second;
         Item &item = items[view];
-        item.fixed = view == root || [view translatesAutoresizingMaskIntoConstraints];
+        item.fixed = view != root && [view translatesAutoresizingMaskIntoConstraints];
         rects[view] = [view convertRect: [view bounds] toView: nil];
         return &item;
     };
@@ -159,6 +161,17 @@ static BOOL LayoutOnce(NSWindow *window) {
         NSView *view = entry.first;
         Item &v = entry.second;
         NSRect r = rects[view];
+        if (view == root) {
+            // The window keeps its size at NSLayoutPriorityWindowSizeStayPut (500): required
+            // content constraints, and stronger ones, can resize it, as on macOS.
+            AddConstraint(solver, v.x == r.origin.x);
+            AddConstraint(solver, v.y == r.origin.y);
+            AddConstraint(solver, v.w >= 0);
+            AddConstraint(solver, v.h >= 0);
+            AddConstraint(solver, (v.w == r.size.width) | Strength(500));
+            AddConstraint(solver, (v.h == r.size.height) | Strength(500));
+            continue;
+        }
         if (v.fixed) {
             AddConstraint(solver, v.x == r.origin.x);
             AddConstraint(solver, v.y == r.origin.y);
@@ -211,11 +224,26 @@ static BOOL LayoutOnce(NSWindow *window) {
 
     solver.updateVariables();
 
-    // Parents first: a child's frame is relative to its superview's new position.
+    // The content's size: resize the window when the constraints moved it, unless the window
+    // manager already refused that size (a tiling manager keeps its own), so passes don't fight.
     BOOL changed = NO;
+    Item &content = items[root];
+    NSSize wanted = NSMakeSize(round(content.w.value()), round(content.h.value()));
+    NSSize current = [root frame].size;
+    if (fabs(wanted.width - current.width) >= 1 || fabs(wanted.height - current.height) >= 1) {
+        NSValue *asked = objc_getAssociatedObject(window, OSXERAskedSizeKey);
+        if (!asked || !NSEqualSizes([asked sizeValue], wanted)) {
+            objc_setAssociatedObject(window, OSXERAskedSizeKey, [NSValue valueWithSize: wanted],
+                                     OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            [window setContentSize: wanted];
+            changed = YES;
+        }
+    }
+
+    // Parents first: a child's frame is relative to its superview's new position.
     for (NSView *view : views) {
         auto found = items.find(view);
-        if (found == items.end() || found->second.fixed) continue;
+        if (found == items.end() || found->second.fixed || view == root) continue;
         Item &v = found->second;
         NSRect inWindow = NSMakeRect(round(v.x.value()), round(v.y.value()),
                                      round(MAX(0, v.w.value())), round(MAX(0, v.h.value())));

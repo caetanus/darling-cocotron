@@ -232,8 +232,10 @@ NSSize OSXERBigSurButtonSize(NSButtonCell *cell) {
     NSSize title = [[cell attributedTitle] size];
     CGFloat width = [cell imagePosition] == NSImageOnly ? 0 : title.width;
     NSString *name = [[cell image] name];
-    if ([name isEqualToString: @"NSSwitch"]) width += 20;
-    else if ([name isEqualToString: @"NSRadioButton"]) width += 22;
+    // OSXER BIGSUR (check/radio width): the title starts at 2 + 14 + 5 = 21 pt (check) and
+    // 1 + 16 + 4 = 21 pt (radio); 2 pt more keep rounding from truncating it.
+    if ([name isEqualToString: @"NSSwitch"]) width += 23;
+    else if ([name isEqualToString: @"NSRadioButton"]) width += 23;
     else {
         width += 16;
         if ([cell image] && [cell imagePosition] != NSNoImage)
