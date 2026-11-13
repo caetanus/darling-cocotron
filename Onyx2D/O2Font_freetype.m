@@ -105,6 +105,14 @@ static void addAppFont(FcConfig *config, NSString *path) {
     }
 }
 
+// OSXER (fonts): adds a font file (guest path) to the shared fontconfig, so it can be found by
+// name like an installed font. Backs CTFontManagerRegisterFontsForURL.
+BOOL O2FontRegisterFontFile(NSString *path) {
+    if (path == nil) return NO;
+    NSString *host = hostPathFromGuestPath(path);
+    return FcConfigAppFontAddFile(O2FontSharedFontConfig(), (const FcChar8 *) [host UTF8String]) ? YES : NO;
+}
+
 FcConfig *O2FontSharedFontConfig() {
     static FcConfig *fontConfig = NULL;
 

@@ -32,10 +32,14 @@ CFArrayRef CTFontManagerCopyAvailableFontFamilyNames(void)
     return (CFArrayRef) [sorted copy];
 }
 
+// OSXER (fonts): fonts an app ships (or AppKit's own) become available by name for the
+// process, whatever the scope; was a stub that registered nothing.
+extern BOOL O2FontRegisterFontFile(NSString *path);
 bool CTFontManagerRegisterFontsForURL(CFURLRef fontURL, CTFontManagerScope scope, CFErrorRef * error)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return false;
+    NSString *path = [(NSURL *) fontURL path];
+    if (error) *error = NULL;
+    return path != nil && O2FontRegisterFontFile(path);
 }
 
 CTFontDescriptorRef CTFontManagerCreateFontDescriptorFromData(CFDataRef data)

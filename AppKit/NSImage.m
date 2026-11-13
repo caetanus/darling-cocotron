@@ -452,6 +452,13 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
         }
     }
 
+    // OSXER APPKIT (symbols): AppKit's own standard images, drawn with Phosphor.
+    if (image == nil && [name hasPrefix: @"NS"]) {
+        extern NSImage *OSXERStandardImageNamed(NSString *name);
+        image = OSXERStandardImageNamed(name);
+        [image setName: name];
+    }
+
     // Cocoa AppKit always returns the same shared cached image
     return image;
 }
@@ -648,6 +655,7 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
     [_representations release];
     [_accessibilityDescription release];
     [_symbolConfiguration release];
+    [_osxerSymbolName release];
     [super dealloc];
 }
 
@@ -659,6 +667,7 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
     result->_representations = [_representations mutableCopy];
     result->_accessibilityDescription = [_accessibilityDescription copy];
     result->_symbolConfiguration = [_symbolConfiguration retain];
+    result->_osxerSymbolName = [_osxerSymbolName copy];
 
     return result;
 }
@@ -1415,28 +1424,37 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
 // Apple returns nil for names it doesn't know; here only nil or empty names do,
 // because there is no symbol list to check against and apps usually expect an
 // image for the names they ship with.
-+ (NSImage *) _symbolPlaceholderWithDescription: (NSString *) description
-                                  configuration:
-                                          (NSImageSymbolConfiguration *)
-                                                  configuration
-{
-    static BOOL logged = NO;
-    if (!logged) {
-        logged = YES;
-        NSLog(@"NSImage: SF Symbols are not available, system symbol images "
-              @"are drawn as placeholders");
-    }
+// OSXER APPKIT (symbols): the symbol is drawn with Phosphor Icons when its name maps to one
+// (OSXERSymbols.m); otherwise a placeholder square.
+extern BOOL OSXERSymbolGlyph(NSString *name, unichar *glyph, BOOL *fill);
+extern NSImageRep *OSXERSymbolRep(unichar glyph, BOOL fill, NSSize size);
 
++ (NSImage *) _symbolImageNamed: (NSString *) name
+                    description: (NSString *) description
+                  configuration: (NSImageSymbolConfiguration *) configuration
+{
     if (configuration == nil)
         configuration = [NSImageSymbolConfiguration
                 configurationWithScale: NSImageSymbolScaleMedium];
 
     CGFloat side = [configuration _placeholderSide];
     NSSize size = NSMakeSize(side, side);
-    NSCustomImageRep *rep = [[NSCustomImageRep alloc]
-            initWithDrawSelector: @selector(_drawSymbolPlaceholder:)
-                        delegate: [NSImageSymbolConfiguration class]];
-    [rep setSize: size];
+    unichar glyph = 0;
+    BOOL fill = NO;
+    NSImageRep *rep = nil;
+    if (OSXERSymbolGlyph(name, &glyph, &fill)) {
+        rep = [OSXERSymbolRep(glyph, fill, size) retain];
+    } else {
+        static BOOL logged = NO;
+        if (!logged) {
+            logged = YES;
+            NSLog(@"NSImage: no stand-in for system symbol %@; drawn as a placeholder", name);
+        }
+        rep = [[NSCustomImageRep alloc]
+                initWithDrawSelector: @selector(_drawSymbolPlaceholder:)
+                            delegate: [NSImageSymbolConfiguration class]];
+        [rep setSize: size];
+    }
 
     NSImage *image = [[[self alloc] initWithSize: size] autorelease];
     [image addRepresentation: rep];
@@ -1444,6 +1462,7 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
     [image setTemplate: YES];
     [image setAccessibilityDescription: description];
     image->_symbolConfiguration = [configuration retain];
+    image->_osxerSymbolName = [name copy];
     return image;
 }
 
@@ -1452,8 +1471,7 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
 {
     if ([name length] == 0)
         return nil;
-    return [self _symbolPlaceholderWithDescription: description
-                                     configuration: nil];
+    return [self _symbolImageNamed: name description: description configuration: nil];
 }
 
 + (instancetype) imageWithSystemSymbolName: (NSString *) name
@@ -1472,9 +1490,9 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
 
     NSImageSymbolConfiguration *merged = [_symbolConfiguration
             configurationByApplyingConfiguration: configuration];
-    return [[self class]
-            _symbolPlaceholderWithDescription: _accessibilityDescription
-                                configuration: merged];
+    return [[self class] _symbolImageNamed: _osxerSymbolName
+                               description: _accessibilityDescription
+                             configuration: merged];
 }
 
 - (NSImageSymbolConfiguration *) symbolConfiguration {

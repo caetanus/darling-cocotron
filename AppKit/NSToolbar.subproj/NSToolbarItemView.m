@@ -66,9 +66,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     NSRect rect = [self bounds];
     CGFloat labelHeight = [_toolbarItem _labelSize].height;
     rect.size.height -= labelHeight;
+    // OSXER APPKIT (toolbar sizes): the padding separates the label; without one (icon-only
+    // display) it pushed the view 4 pt past the top of the item.
     rect.origin.y +=
             labelHeight +
-            4; // 4 is Cocotron magic padding (see NSToolbarItem drawInRect:
+            (labelHeight > 0 ? 4 : 0); // 4 is Cocotron magic padding (see NSToolbarItem drawInRect:
     return rect;
 }
 

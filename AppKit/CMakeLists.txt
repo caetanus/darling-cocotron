@@ -416,6 +416,7 @@ set(AppKit_sources
 	NSLayoutConstraint.m
 	OSXERLayoutEngine.mm
 	OSXERAssetCatalog.m
+	OSXERSymbols.m
 	NSSpeechSynthesizer.m
 	NSCustomTouchBarItem.m
 	NSGestureRecognizer.m
@@ -481,6 +482,11 @@ set(FRAMEWORK_VERSION "C")
 
 set(AppKit_resources
 	Info.plist Info.plist
+
+	# OSXER APPKIT (symbols): Phosphor Icons (MIT) stand in for SF Symbols.
+	Fonts/Phosphor.ttf Fonts/Phosphor.ttf
+	Fonts/Phosphor-Fill.ttf Fonts/Phosphor-Fill.ttf
+	Fonts/Phosphor-LICENSE Fonts/Phosphor-LICENSE
 
 	StandardKeyBindings.keyBindings NSKeyboardBinding/StandardKeyBindings.keybindings
 

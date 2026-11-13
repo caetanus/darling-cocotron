@@ -50,6 +50,7 @@ typedef enum {
     NSImageCacheMode _cacheMode;
     NSString *_accessibilityDescription;
     NSImageSymbolConfiguration *_symbolConfiguration;
+    NSString *_osxerSymbolName; // OSXER APPKIT (symbols)
 }
 
 + (NSArray *) imageFileTypes;

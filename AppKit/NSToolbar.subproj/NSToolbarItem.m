@@ -29,6 +29,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSStringDrawing.h>
 #import <AppKit/NSToolbar.h>
 #import <AppKit/NSToolbarItem.h>
+#import <AppKit/NSButton.h>
 #import <AppKit/NSToolbarItemView.h>
 
 const NSToolbarItemIdentifier NSToolbarCustomizeToolbarItemIdentifier =
@@ -449,6 +450,12 @@ extern NSSize _NSToolbarIconSizeSmall;
 
     if ([_view respondsToSelector: @selector(setImage:)]) {
         [(id) _view setImage: image];
+        // OSXER APPKIT (toolbar buttons): a button view given the item's image shows it as
+        // an icon-only toolbar button, as on macOS; otherwise its default "Button" title
+        // stays (Transmission creates the buttons with -init and sets only the item image).
+        if (image && [_view isKindOfClass: [NSButton class]] &&
+            [(NSButton *) _view imagePosition] == NSNoImage)
+            [(NSButton *) _view setImagePosition: NSImageOnly];
     }
     [self _didChange];
 }

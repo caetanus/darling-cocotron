@@ -393,8 +393,12 @@ NSSize OSXERBigSurButtonSize(NSButtonCell *cell) {
     if (!check && !radio && [cell imagePosition] != NSNoImage && [cell image] != nil) {
         NSImage *image = [cell imageForHighlight];
         NSSize size = [image size];
+        // OSXER BIGSUR (image-only buttons): the image has the whole body, not the title's
+        // insets; the title room (body - 16) halved toolbar icons in 36 pt buttons.
+        BOOL imageOnly = [cell imagePosition] == NSImageOnly || [cell imagePosition] == NSImageOverlaps;
+        CGFloat roomWidth = imageOnly ? NSWidth(body) - 4 : NSWidth(titleRect);
         CGFloat scale = MIN(1, MIN(NSHeight(body) / MAX(1, size.height),
-                                    NSWidth(titleRect) / MAX(1, size.width)));
+                                    roomWidth / MAX(1, size.width)));
         size.width *= scale;
         size.height *= scale;
         NSRect imageRect = NSMakeRect(NSMinX(titleRect), NSMidY(body) - size.height / 2,

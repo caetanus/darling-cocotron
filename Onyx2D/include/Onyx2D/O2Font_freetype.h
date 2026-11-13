@@ -34,6 +34,7 @@ FT_Face O2FontFreeTypeFace(O2Font_freetype *self);
 
 FT_Library O2FontSharedFreeTypeLibrary();
 FcConfig *O2FontSharedFontConfig();
+BOOL O2FontRegisterFontFile(NSString *path); // OSXER (fonts)
 
 /* Lists the installed faces whose properties equal all of the non-nil
  * arguments; no substitution takes place. Each element is a dictionary
