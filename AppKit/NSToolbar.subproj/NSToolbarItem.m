@@ -355,13 +355,25 @@ extern NSSize _NSToolbarIconSizeSmall;
     _menuFormRepresentation = menuItem;
 }
 
+// OSXER APPKIT (toolbar sizes): since macOS 11 apps leave minSize/maxSize alone and give the
+// view no frame (Auto Layout); the item then takes the view's fitting size. Transmission's
+// toolbar items came out 1x1.
+- (NSSize) _osxerViewSize {
+    NSSize size = [_view frame].size;
+    if (size.width < 2 || size.height < 2) {
+        NSSize fitting = [_view fittingSize];
+        if (fitting.width >= 2 && fitting.height >= 2) size = fitting;
+    }
+    return size;
+}
+
 - (void) setView: (NSView *) view {
     view = [view retain];
     [_view release];
     _view = view;
     if (view != nil) {
-        _minSize = [_view frame].size;
-        _maxSize = [_view frame].size;
+        _minSize = [self _osxerViewSize];
+        _maxSize = [self _osxerViewSize];
     }
     [_enclosingView setSubview: _view];
     [self _didChange];
@@ -522,6 +534,10 @@ extern NSSize _NSToolbarIconSizeSmall;
                    maxSize: (NSSize) maxSize
 {
     NSSize result;
+
+    // OSXER APPKIT (toolbar sizes): unset or degenerate sizes of a view item follow the view.
+    if (_view != nil && (minSize.width < 2 || minSize.height < 2) && (maxSize.width < 2 || maxSize.height < 2))
+        minSize = maxSize = [self _osxerViewSize];
 
     switch (sizeMode) {
     case NSToolbarSizeModeSmall:

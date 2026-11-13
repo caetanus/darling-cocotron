@@ -30,6 +30,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @interface NSToolbarItem (private)
 - (void) drawInRect: (NSRect) bounds highlighted: (BOOL) highlighted;
 - (NSSize) _labelSize;
+- (NSSize) _osxerViewSize; // OSXER APPKIT (toolbar sizes)
 @end
 
 @interface NSToolbar (private)
@@ -79,6 +80,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         // Center the subview within the bounds
         NSRect availableRect = [self availableRectForSubview];
         NSRect viewRect = [view frame];
+        // OSXER APPKIT (toolbar sizes): an Auto Layout view without a frame gets the item's
+        // fitting size, or the available room when it reports none.
+        if (NSWidth(viewRect) < 2 || NSHeight(viewRect) < 2) {
+            NSSize size = [_toolbarItem _osxerViewSize];
+            if (size.width < 2 || size.height < 2) size = availableRect.size;
+            viewRect.size.width = MIN(size.width, NSWidth(availableRect));
+            viewRect.size.height = MIN(size.height, NSHeight(availableRect));
+        }
 
         // Center the subview within the available bounds
         viewRect.origin.x = NSMinX(availableRect) +
